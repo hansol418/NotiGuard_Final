@@ -26,20 +26,24 @@ Admins register notices and send **important popup notices** to specific targets
 ## ✨ 주요 기능 (Key Features)
 
 ### 🧑‍💼 관리자 (Admin)
-- 📝 **공지 등록/조회**: 일반공지/중요공지 등록, 게시판 리스트/상세 확인
-- 🎯 **중요공지 발송 대상 선택**: 본부/팀 단위 선택 및 예약 전송 시간 설정(오전 10시/오후 2시)
-- 📎 **첨부파일 업로드**: 이미지/파일 업로드 및 다운로드 제공 (DB 메타 저장 + 디스크 저장)
+- 📝 **공지 CRUD**: 작성/조회/수정/삭제
+- 🎯 **중요공지 팝업 발송**: 본부/팀 단위 대상 선택, 예약 전송 시간 설정
+- 📎 **첨부파일 관리**: 이미지/파일 업로드 (Cloudflare R2 저장)
+- 🤖 **AI 챗봇**: 공지사항 질의응답
 
 ### 👩‍💻 직원 (Employee)
-- 📌 **중요공지 팝업 수신**: 5초 주기로 최신 중요공지 조회 → 미응답 팝업 자동 노출
-- ✅ **팝업 처리**:  
-  1) 확인함(2차 확인 포함) / 2) 나중에 확인(남은 횟수 차감) / 3) 요약 보기 / 4) 챗봇 이동 로그 기록
-- 🧾 **공지 요약**: POTENS.ai로 공지 핵심을 5줄 내 요약 + 해야 할 일 정리
-- 🖼️ **팝업 내 이미지 표시**: 공지 첨부 이미지가 있으면 팝업 본문에 함께 렌더링
+- 📌 **중요공지 팝업 수신**: 5초 주기 자동 조회, 미응답 팝업 노출
+- ✅ **팝업 처리**: 확인/나중/요약/챗봇
+- 🧾 **AI 요약**: POTENS.ai 기반 공지 핵심 요약
+- 🤖 **AI 챗봇**:
+  - 플로팅 위젯 (우측 하단)
+  - 챗봇 모달 (클릭 시 대화창)
+  - 독립 챗봇 페이지
+  - 공지사항 검색 및 질의응답
 
 ### 🔐 로그인/권한
 - 🔑 **accounts 기반 로그인**: ADMIN / EMPLOYEE 역할 분리
-- 🚫 권한 체크 후 페이지 접근 제어 (`st.switch_page`)
+- 🚫 권한 기반 페이지 접근 제어 (`st.switch_page`)
 
 ---
 
@@ -49,9 +53,10 @@ Admins register notices and send **important popup notices** to specific targets
 |---|---|---|
 | **Language** | Python | 3.10+ |
 | **Frontend** | Streamlit | Pages 구조 + `st.dialog` |
-| **Database** | SQLite | `groupware.db` |
-| **AI Summary** | POTENS.ai API | 공지 요약 |
-| **Libraries** | requests, python-dotenv | API/환경변수 |
+| **Database** | PostgreSQL / SQLite | Railway (프로덕션) / Local (개발) |
+| **Storage** | Cloudflare R2 | 첨부파일 스토리지 |
+| **AI** | POTENS.ai API | 챗봇 + 공지 요약 |
+| **Libraries** | requests, python-dotenv, psycopg2, boto3 | API/환경변수/DB/스토리지 |
 
 ---
 
@@ -60,31 +65,47 @@ Admins register notices and send **important popup notices** to specific targets
 > ✅ 현재 실제 구조 기준 (POPUP_SERVICE-MAIN)
 
 ```text
-POPUP_SERVICE-MAIN/
-├── app.py                      # 앱 엔트리포인트 (무조건 로그인 페이지로 시작)
-├── service.py                  # 비즈니스 로직 (공지/팝업/로그/첨부/로그인)
-├── groupware.db                # SQLite DB 파일
-├── requirements.txt            # 의존성 목록
-├── README.md                   # 이 문서
-├── README2.md                  # (옵션) 이전/임시 문서
-├── 작동순서.txt                # (옵션) 실행/동작 흐름 메모
-├── assets/
-│   ├── chatimg_r.png
-│   └── chatimg.png
-├── core/
-│   ├── auth.py                 # 비밀번호 검증 (verify_password)
-│   ├── db.py                   # DB 연결/초기화 (get_conn, init_db)
-│   ├── layout.py               # 공통 UI/테마/사이드바/탑바
-│   └── summary.py              # POTENS 요약 모듈 (summarize_notice)
-├── pages/
-│   ├── 0_Login.py              # 로그인 모달 페이지 (st.dialog)
-│   ├── admin.py                # 관리자 화면 (공지 리스트/상세/글쓰기/대상선택)
-│   └── employee.py             # 직원 화면 (팝업 수신/요약/게시판)
+Popup_Service-main/
+├── app.py                          # 앱 엔트리포인트
+├── service.py                      # 비즈니스 로직
+├── Procfile                        # Railway 배포 설정
+├── requirements.txt                # 패키지 의존성
+├── README.md                       # 이 문서 (공개용)
+│
+├── core/                           # 핵심 모듈
+│   ├── auth.py                     # 인증
+│   ├── db.py                       # DB 연결 (PostgreSQL/SQLite)
+│   ├── layout.py                   # UI 레이아웃
+│   ├── summary.py                  # POTENS 요약
+│   ├── chatbot_engine.py           # AI 챗봇 엔진 ✨
+│   └── storage.py                  # R2 스토리지 ✨
+│
+├── pages/                          # Streamlit 페이지
+│   ├── 0_Login.py                  # 로그인
+│   ├── admin.py                    # 관리자 페이지
+│   ├── employee.py                 # 직원 페이지
+│   └── chatbot.py                  # 챗봇 페이지 ✨
+│
 ├── sql/
-│   └── schema.sql              # DB 스키마 (notices, popups, logs, accounts, files)
-└── uploads/                    # 첨부 저장 디렉터리 (공지 등록 시 파일 저장)
-    └── {postid}_{timestamp}_{filename}
+│   └── schema.sql                  # DB 스키마
+│
+├── assets/                         # 정적 파일
+│   ├── chatimg.png
+│   └── chatimg_r.png
+│
+├── docs/                           # 📚 개발 문서 (민감정보 포함, Git 제외)
+│   ├── CLAUDE.md                   # 로컬 개발 가이드
+│   ├── DEPLOYMENT_COMPLETE.md      # 최종 배포 완료 문서 ✅
+│   ├── RAILWAY_ENV_SETUP.md        # Railway 환경변수 가이드
+│   └── ... (기타 기술 문서)
+│
+├── test_chatbot.py                 # 챗봇 테스트 ✨
+├── test_potens_api.py              # API 테스트 ✨
+├── init_railway_db.py              # Railway DB 초기화
+└── migrate_files_to_r2.py          # 파일 R2 마이그레이션 ✨
 ```
+
+✨ = 최근 추가된 파일
 
 ---
 
@@ -118,15 +139,24 @@ pip install -r requirements.txt
 
 ### 5. 환경 변수 설정 (Environment Configuration)
 
-`.env` 파일을 프로젝트 루트에 생성하고 POTENS 정보를 입력합니다.
+`.env` 파일을 프로젝트 루트에 생성하고 필요한 환경변수를 입력합니다.
 
 ```env
+# POTENS AI 챗봇 (필수)
 POTENS_API_KEY=your_actual_api_key_here
 POTENS_API_URL=https://ai.potens.ai/api/chat
 RESPONSE_TIMEOUT=30
+
+# Cloudflare R2 스토리지 (선택 - 로컬은 uploads/ 폴더 사용)
+R2_ACCOUNT_ID=your_account_id
+R2_ACCESS_KEY_ID=your_access_key
+R2_SECRET_ACCESS_KEY=your_secret_key
+R2_BUCKET_NAME=notiguard-files
 ```
 
-> ⚠️ `POTENS_API_KEY`가 없으면 요약 기능에서 RuntimeError가 발생합니다.
+> ⚠️ `POTENS_API_KEY`가 없으면 챗봇/요약 기능에서 RuntimeError가 발생합니다.
+>
+> 📚 **상세 설정 가이드**: `docs/CLAUDE.md` 참조
 
 ### 6. 애플리케이션 실행 (Run Application)
 ```bash
@@ -256,16 +286,33 @@ streamlit run app.py
 
 ## 🚢 배포 (Deployment)
 
-현재 저장소는 **로컬/내부망 실행**을 기본으로 합니다.  
-배포 환경(Railway, etc.)을 사용할 경우 아래 항목이 필요합니다.
+### ✅ Railway 프로덕션 배포 완료 (2026-01-04)
 
-- 환경 변수:
-  - `POTENS_API_KEY`
-  - `POTENS_API_URL`
-  - `RESPONSE_TIMEOUT`
-- Streamlit 실행 커맨드:
+- **플랫폼**: Railway
+- **데이터베이스**: PostgreSQL (관리형)
+- **스토리지**: Cloudflare R2
+- **상태**: 정상 운영 중
+
+### 배포 가이드
+
+**📚 상세 가이드**: `docs/DEPLOYMENT_COMPLETE.md`, `docs/RAILWAY_ENV_SETUP.md` 참조
+
+#### 필수 환경변수
 ```bash
-streamlit run app.py --server.port $PORT --server.address 0.0.0.0
+DATABASE_URL=postgresql://...              # Railway 자동 설정
+POTENS_API_KEY=<your_api_key>             # POTENS AI
+POTENS_API_URL=https://ai.potens.ai/api/chat
+RESPONSE_TIMEOUT=30
+R2_ACCOUNT_ID=<your_account_id>           # Cloudflare R2
+R2_ACCESS_KEY_ID=<your_access_key>
+R2_SECRET_ACCESS_KEY=<your_secret_key>
+R2_BUCKET_NAME=notiguard-files
+```
+
+#### Streamlit 실행 커맨드 (Procfile)
+```bash
+release: python init_railway_db.py
+web: streamlit run app.py --server.port $PORT --server.address 0.0.0.0
 ```
 
 ---
@@ -348,11 +395,32 @@ v1.0 MVP ✅
   - 클릭 시 외부 챗봇 서비스로 즉시 이동
 
 #### 🗄️ 데이터베이스
-- ✅ SQLite 기반 데이터베이스 구축
-- ✅ 공지 / 팝업 / 직원 / 계정 / 로그 / 첨부파일 스키마 설계
+- ✅ PostgreSQL / SQLite 이중 지원
+  - Railway (프로덕션): PostgreSQL
+  - Local (개발): SQLite
+- ✅ 공지 / 팝업 / 직원 / 계정 / 로그 / 첨부파일 / 챗봇로그 스키마 (7개 테이블)
+- ✅ PostgreSQL 마이그레이션 완료
+  - SQLite → PostgreSQL 데이터 이전 (18개 공지, 12개 파일)
+  - 쿼리 플레이스홀더 변환 (`?` → `%s`)
 - ✅ 첨부파일 메타 + 실제 파일 분리 관리
-- ✅ 조회수 증가 제어 로직  
-  - 상세 진입 시 1회만 증가
+- ✅ 조회수 증가 제어 로직 (중복 방지)
+
+#### 📁 파일 스토리지
+- ✅ Cloudflare R2 연동 완료
+- ✅ 파일 업로드/다운로드 자동화
+- ✅ R2 Public URL 생성
+- ✅ 로컬 백업 (개발 환경)
+- ✅ 기존 파일 R2 마이그레이션 완료 (12개)
+
+#### 🤖 AI 챗봇 통합 ✨
+- ✅ POTENS.ai API 연동 완료
+- ✅ 공지사항 기반 질의응답
+- ✅ 응답 타입 분류 (NORMAL/MISSING/IRRELEVANT)
+- ✅ 플로팅 위젯 UI (우측 하단)
+- ✅ 챗봇 모달 다이얼로그
+- ✅ 독립 챗봇 페이지
+- ✅ 채팅 로그 저장
+- ✅ 참조 공지 추출 및 표시
 
 ---
 
@@ -412,6 +480,33 @@ Railway 등 클라우드 환경에서 재배포 시
 
 ---
 
+## 📚 개발 문서 (Documentation)
+
+상세한 기술 문서는 `docs/` 폴더를 참조하세요.
+
+### 주요 문서
+- **`docs/DEPLOYMENT_COMPLETE.md`** - 최종 배포 완료 문서 ✅
+- **`docs/CLAUDE.md`** - 로컬 개발 환경 설정 가이드
+- **`docs/RAILWAY_ENV_SETUP.md`** - Railway 환경변수 설정 가이드
+- **`docs/README_2026-01-03.md`** - 전체 기능 개발 상세 문서
+
+### 기능별 문서
+- `docs/CHATBOT_MODAL_IMPLEMENTATION.md` - 챗봇 모달 구현
+- `docs/CRUD_IMPLEMENTATION.md` - 게시판 CRUD 구현
+- `docs/R2_STORAGE_SETUP.md` - Cloudflare R2 설정
+
+### 배포 관련
+- `docs/RAILWAY_DEPLOY_GUIDE.md` - Railway 배포 가이드
+- `docs/FINAL_DEPLOYMENT_SUMMARY.md` - 배포 요약
+
+### 문제 해결
+- `docs/TROUBLESHOOTING.md` - 트러블슈팅 가이드
+- `docs/BUGFIX_ENV_LOADING.md` - 환경변수 버그 수정
+
+> ⚠️ **주의**: `docs/` 폴더는 민감한 API 키와 환경변수 정보를 포함하므로 Git에서 제외됩니다.
+
+---
+
 ## 👥 Contributors
 - **개발 (Development)**: 효성전기 프로젝트 팀
 - **기획 (Planning)**: 효성전기 IT팀
@@ -419,11 +514,11 @@ Railway 등 클라우드 환경에서 재배포 시
 ---
 
 ## 📄 라이선스 (License)
-이 프로젝트는 내부 MVP 프로젝트입니다.  
+이 프로젝트는 내부 MVP 프로젝트입니다.
 This project is an internal MVP project.
 
 ---
 
-**Version**: v1.0 MVP  
-**Last Updated**: 2026-01-02
-"# Popup_Service" 
+**Version**: v1.0 MVP (Production)
+**Last Updated**: 2026-01-04
+**Deployment**: Railway ✅ 
