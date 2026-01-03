@@ -244,14 +244,14 @@ with st.sidebar:
                 WHERE created_at >= %s
             """, (today_start,))
             row = cur.fetchone()
-            today_count = row[0] if row else 0
+            today_count = row['count'] if row else 0
 
             st.metric("오늘 질문", f"{today_count}개")
 
             # 전체 질문 수
             cur = conn.execute("SELECT COUNT(*) as count FROM chat_logs")
             row = cur.fetchone()
-            total_count = row[0] if row else 0
+            total_count = row['count'] if row else 0
 
             st.metric("전체 질문", f"{total_count}개")
 

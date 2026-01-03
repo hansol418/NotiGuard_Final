@@ -336,16 +336,22 @@ def render_chatbot_modal(user_id: str):
         })
 
         # 챗봇 응답
-        result = engine.ask(prompt)
-        response = result["response"]
+        with st.spinner("답변 생성 중..."):
+            result = engine.ask(prompt)
+            response = result["response"]
 
-        # 봇 메시지 추가
-        st.session_state.modal_chat_messages.append({
-            "role": "assistant",
-            "content": response
-        })
+            # 봇 메시지 추가
+            st.session_state.modal_chat_messages.append({
+                "role": "assistant",
+                "content": response
+            })
 
-        st.rerun()
+        # 새 메시지를 즉시 표시
+        with chat_container:
+            with st.chat_message("user"):
+                st.markdown(prompt)
+            with st.chat_message("assistant"):
+                st.markdown(response)
 
     # 하단 버튼
     st.divider()
