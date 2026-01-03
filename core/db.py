@@ -36,12 +36,9 @@ def get_conn():
                 user=url.username,
                 password=url.password,
                 host=url.hostname,
-                port=url.port
+                port=url.port,
+                cursor_factory=RealDictCursor  # Dict-like cursor
             )
-            # Dict-like cursor
-            conn.row_factory = lambda cursor, row: {
-                col.name: val for col, val in zip(cursor.description, row)
-            }
             try:
                 yield conn
                 conn.commit()
