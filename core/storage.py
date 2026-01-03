@@ -19,8 +19,8 @@ R2_SECRET_ACCESS_KEY = os.getenv("R2_SECRET_ACCESS_KEY", "")
 R2_BUCKET_NAME = os.getenv("R2_BUCKET_NAME", "hyosung-groupware")
 R2_PUBLIC_URL = os.getenv("R2_PUBLIC_URL", "")  # 커스텀 도메인 또는 R2.dev URL
 
-# Railway 환경 감지
-IS_RAILWAY = bool(os.getenv("RAILWAY_ENVIRONMENT"))
+# Railway 환경 감지 (DATABASE_URL이 있으면 Railway 환경)
+IS_RAILWAY = bool(os.getenv("DATABASE_URL"))
 
 def get_r2_client():
     """Cloudflare R2 S3 호환 클라이언트 생성"""

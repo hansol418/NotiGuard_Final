@@ -322,8 +322,8 @@ elif menu == "게시판":
                         mime = (a.get("mimeType", "") or "").lower()
 
                         try:
-                            with open(path, "rb") as f:
-                                data = f.read()
+                            from core.storage import get_file
+                            data = get_file(path)
 
                             # 이미지면 미리보기
                             if mime.startswith("image/"):
@@ -336,8 +336,8 @@ elif menu == "게시판":
                                 mime=a.get("mimeType", "") or None,
                                 key=f"dl_admin_{a['fileId']}",
                             )
-                        except FileNotFoundError:
-                            st.warning(f"파일을 찾을 수 없습니다: {name}")
+                        except Exception as e:
+                            st.warning(f"파일을 찾을 수 없습니다: {name} ({str(e)})")
 
         c1, c2, c3, c4 = st.columns(4)
         with c1:
