@@ -125,7 +125,7 @@ def save_attachments(post_id: int, uploaded_files: List[Any]) -> None:
             conn.execute(
                 """
                 INSERT INTO notice_files(post_id, filename, mime_type, file_path, file_size, uploaded_at)
-                VALUES(%s,%s,?,%s,?,%s)
+                VALUES(%s,%s,%s,%s,%s,%s)
                 """,
                 (int(post_id), orig_name, mime, file_path_or_url, size, ts),
             )
@@ -181,7 +181,7 @@ def save_post(title: str, content: str, ntype: str, uploaded_files: Optional[Lis
         conn.execute(
             """
             INSERT INTO notices(post_id, created_at, type, title, content, author, views)
-            VALUES(%s,%s,?,%s,?,%s,0)
+            VALUES(%s,%s,%s,%s,%s,%s,0)
             """,
             (post_id, ts, safe_type, title, content, author),
         )
@@ -318,7 +318,7 @@ def create_popup(post_info: Dict, selected_departments: List[str], selected_team
         conn.execute(
             """
             INSERT INTO popups(popup_id, post_id, title, content, target_departments, target_teams, created_at)
-            VALUES(%s,%s,?,%s,?,%s,%s)
+            VALUES(%s,%s,%s,%s,%s,%s,%s)
             """,
             (popup_id, post_id, title, content, dept_csv, team_csv, ts),
         )
@@ -416,7 +416,7 @@ def record_popup_action(employee_id: str, popup_id: int, action: str, confirmed:
         conn.execute(
             """
             INSERT INTO popup_logs(created_at, employee_id, popup_id, action, confirmed)
-            VALUES(%s,%s,?,%s,%s)
+            VALUES(%s,%s,%s,%s,%s)
             """,
             (ts, employee_id, int(popup_id), action, confirmed or ""),
         )
