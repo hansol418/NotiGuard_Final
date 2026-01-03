@@ -19,6 +19,44 @@ if USE_POSTGRES:
     import urllib.parse as urlparse
 
 
+class PostgresConnectionWrapper:
+    """
+    PostgreSQL connection wrapper to support SQLite-style execute() calls
+    """
+    def __init__(self, conn):
+        self._conn = conn
+        self._cursor = None
+
+    def execute(self, sql, params=None):
+        """SQLite-style execute that returns a cursor"""
+        if self._cursor is None:
+            self._cursor = self._conn.cursor(cursor_factory=RealDictCursor)
+        if params:
+            self._cursor.execute(sql, params)
+        else:
+            self._cursor.execute(sql)
+        return self._cursor
+
+    def commit(self):
+        return self._conn.commit()
+
+    def rollback(self):
+        return self._conn.rollback()
+
+    def close(self):
+        if self._cursor:
+            self._cursor.close()
+        return self._conn.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if exc_type:
+            self.rollback()
+        return False
+
+
 @contextmanager
 def get_conn():
     """
@@ -28,19 +66,22 @@ def get_conn():
     - Railway 배포: PostgreSQL (DATABASE_URL)
     """
     conn = None
+    is_postgres = False
 
     if USE_POSTGRES:
         # PostgreSQL 연결 시도 (Railway)
         try:
             url = urlparse.urlparse(DATABASE_URL)
-            conn = psycopg2.connect(
+            pg_conn = psycopg2.connect(
                 database=url.path[1:],
                 user=url.username,
                 password=url.password,
                 host=url.hostname,
-                port=url.port,
-                cursor_factory=RealDictCursor  # Dict-like cursor
+                port=url.port
             )
+            # Wrap PostgreSQL connection to support SQLite-style execute()
+            conn = PostgresConnectionWrapper(pg_conn)
+            is_postgres = True
         except Exception as e:
             print(f"PostgreSQL 연결 실패: {e}")
             print("SQLite로 폴백합니다...")
@@ -50,6 +91,7 @@ def get_conn():
     if conn is None:
         conn = sqlite3.connect(DB_PATH)
         conn.row_factory = sqlite3.Row
+        is_postgres = False
 
     # 공통 컨텍스트 매니저 로직
     try:
@@ -237,14 +279,14 @@ def _init_postgres():
         schema_sql = schema_path.read_text(encoding="utf-8")
         cursor.execute(schema_sql)
 
-        # 기본 계정 생성
+        # 기본 관리자 계정 생성
         cursor.execute("""
-            INSERT INTO accounts (login_id, password_hash, role, name, department, team, created_at)
-            VALUES (%s, %s, 'ADMIN', %s, %s, '', 0)
+            INSERT INTO accounts (login_id, password_hash, role, employee_id, created_at)
+            VALUES (%s, %s, 'ADMIN', NULL, 0)
             ON CONFLICT (login_id) DO NOTHING
-        """, ("admin", hash_password("1234"), "관리자", "전체"))
+        """, ("admin", hash_password("1234")))
 
-        # 기본 직원 계정
+        # 기본 직원 계정 생성
         employees = [
             ("HS001", "김산", "경영관리본부", "재경팀"),
             ("HS002", "이하나", "연구개발본부", "연구1팀"),
@@ -252,11 +294,19 @@ def _init_postgres():
         ]
 
         for emp_id, name, dept, team in employees:
+            # 먼저 employees 테이블에 직원 정보 추가
             cursor.execute("""
-                INSERT INTO accounts (login_id, password_hash, role, name, department, team, ignore_remaining, created_at)
-                VALUES (%s, %s, 'EMPLOYEE', %s, %s, %s, 3, 0)
+                INSERT INTO employees (employee_id, name, department, team, ignore_remaining)
+                VALUES (%s, %s, %s, %s, 3)
+                ON CONFLICT (employee_id) DO NOTHING
+            """, (emp_id, name, dept, team))
+
+            # 그 다음 accounts 테이블에 계정 추가
+            cursor.execute("""
+                INSERT INTO accounts (login_id, password_hash, role, employee_id, created_at)
+                VALUES (%s, %s, 'EMPLOYEE', %s, 0)
                 ON CONFLICT (login_id) DO NOTHING
-            """, (emp_id, hash_password("1234"), name, dept, team))
+            """, (emp_id, hash_password("1234"), emp_id))
 
         conn.commit()
         cursor.close()
