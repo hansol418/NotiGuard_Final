@@ -158,7 +158,73 @@ else:
 # 챗봇 UI
 # -------------------------
 st.markdown("### 🤖 공지사항 AI 도우미")
-st.caption("효성전기 공지사항에 대해 무엇이든 물어보세요!")
+
+# 컴팩트 컨트롤 바 (대화 선택 + 새 대화 버튼)
+col1, col2 = st.columns([4, 1])
+
+with col1:
+    # 최근 대화 선택 드롭다운 (최근 20개)
+    if len(st.session_state.chat_sessions) > 1:
+        sorted_sessions = sorted(
+            st.session_state.chat_sessions,
+            key=lambda x: x["created_at"],
+            reverse=True
+        )[:20]  # 최근 20개만 표시
+
+        # 드롭다운 옵션 생성
+        session_options = {}
+        for s in sorted_sessions:
+            msg_count = len(s['messages']) // 2  # user + assistant = 1쌍
+            if s['id'] == st.session_state.current_session_id:
+                label = f"💬 {s['summary']} ({msg_count}개 메시지)"
+            else:
+                label = f"🕒 {s['summary']} ({msg_count}개 메시지)"
+            session_options[label] = s['id']
+
+        # 현재 선택된 라벨 찾기
+        current_label = next(
+            (label for label, sid in session_options.items()
+             if sid == st.session_state.current_session_id),
+            list(session_options.keys())[0] if session_options else "현재 대화"
+        )
+
+        selected_label = st.selectbox(
+            "대화 선택",
+            options=list(session_options.keys()),
+            index=list(session_options.keys()).index(current_label) if current_label in session_options else 0,
+            label_visibility="collapsed",
+            key="chat_selector"
+        )
+
+        # 세션 전환
+        selected_id = session_options[selected_label]
+        if selected_id != st.session_state.current_session_id:
+            st.session_state.current_session_id = selected_id
+            selected_session = next(
+                s for s in st.session_state.chat_sessions
+                if s['id'] == selected_id
+            )
+            st.session_state.chat_messages = selected_session['messages']
+            st.rerun()
+    else:
+        # 대화가 1개만 있을 때
+        st.caption("💬 효성전기 공지사항에 대해 무엇이든 물어보세요!")
+
+with col2:
+    if st.button("➕ 새 대화", use_container_width=True, type="primary", key="new_chat_top"):
+        import time
+        session_id = int(time.time() * 1000)
+        st.session_state.chat_sessions.append({
+            "id": session_id,
+            "summary": "새 대화",
+            "messages": [],
+            "created_at": session_id
+        })
+        st.session_state.current_session_id = session_id
+        st.session_state.chat_messages = []
+        st.rerun()
+
+st.markdown("---")
 
 # -------------------------
 # 채팅 메시지 표시
@@ -292,59 +358,6 @@ if prompt := st.chat_input("예: 이번 주 안전교육 일정 알려줘"):
 # 사이드바 정보
 # -------------------------
 with st.sidebar:
-    st.markdown("---")
-
-    # 새 대화 시작 버튼
-    if st.button("➕ 새 대화", use_container_width=True, key="new_chat"):
-        import time
-        session_id = int(time.time() * 1000)
-        st.session_state.chat_sessions.append({
-            "id": session_id,
-            "summary": "새 대화",
-            "messages": [],
-            "created_at": session_id
-        })
-        st.session_state.current_session_id = session_id
-        st.session_state.chat_messages = []
-        st.rerun()
-
-    st.markdown("---")
-
-    # 채팅 기록 표시
-    st.markdown("### 💬 대화 기록")
-
-    if len(st.session_state.chat_sessions) > 0:
-        # 최신 세션부터 표시 (created_at 내림차순)
-        sorted_sessions = sorted(
-            st.session_state.chat_sessions,
-            key=lambda x: x["created_at"],
-            reverse=True
-        )
-
-        for session in sorted_sessions:
-            session_id = session["id"]
-            summary = session["summary"]
-            msg_count = len(session["messages"])
-
-            # 현재 세션인지 확인
-            is_current = (session_id == st.session_state.current_session_id)
-
-            # 세션 버튼 (현재 세션은 primary 스타일)
-            button_label = f"{'🔵' if is_current else '⚪'} {summary} ({msg_count//2})"
-
-            if st.button(
-                button_label,
-                key=f"session_{session_id}",
-                use_container_width=True,
-                type="primary" if is_current else "secondary"
-            ):
-                # 세션 전환
-                st.session_state.current_session_id = session_id
-                st.session_state.chat_messages = session["messages"]
-                st.rerun()
-    else:
-        st.caption("대화 기록이 없습니다.")
-
     st.markdown("---")
 
     st.markdown("### 💡 사용 팁")
