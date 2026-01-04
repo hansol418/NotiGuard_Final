@@ -115,7 +115,7 @@ class ChatbotEngine:
                     ORDER BY
                         CASE
                             WHEN date IS NOT NULL THEN date::date
-                            ELSE (created_at / 1000)::int::abstime::date
+                            ELSE to_timestamp(created_at / 1000)::date
                         END DESC,
                         post_id DESC
                     LIMIT %s
@@ -446,7 +446,7 @@ class ChatbotEngine:
                     ORDER BY
                         CASE
                             WHEN date IS NOT NULL THEN date::date
-                            ELSE (created_at / 1000)::int::abstime::date
+                            ELSE to_timestamp(created_at / 1000)::date
                         END DESC,
                         post_id DESC
                     LIMIT %s
