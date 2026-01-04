@@ -95,12 +95,12 @@ class ChatbotEngine:
             "keywords": keywords
         }
 
-    def _get_recent_notices(self, limit: int = 50) -> List[Dict]:
+    def _get_recent_notices(self, limit: int = 100) -> List[Dict]:
         """
         최근 공지 조회 (통합 DB)
 
         Args:
-            limit: 조회할 공지 개수 (기본값 50개로 증가)
+            limit: 조회할 공지 개수 (기본값 100개)
 
         Returns:
             공지 리스트 (날짜 기준 내림차순)
