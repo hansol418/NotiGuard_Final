@@ -121,8 +121,8 @@ class ChatbotEngine:
                     LIMIT %s
                 """, (limit,))
                 rows = cur.fetchall()
-                columns = [desc[0] for desc in cur.description]
-                return [dict(zip(columns, row)) for row in rows]
+                # RealDictCursor는 이미 dict-like 객체를 반환
+                return [dict(row) for row in rows]
             else:
                 # SQLite - date 필드 기준 정렬
                 cur = conn.execute("""
@@ -452,8 +452,8 @@ class ChatbotEngine:
                     LIMIT %s
                 """, (f"%{keyword}%", f"%{keyword}%", f"%{keyword}%", limit))
                 rows = cur.fetchall()
-                columns = [desc[0] for desc in cur.description]
-                return [dict(zip(columns, row)) for row in rows]
+                # RealDictCursor는 이미 dict-like 객체를 반환
+                return [dict(row) for row in rows]
             else:
                 cur = conn.execute("""
                     SELECT post_id, title, content,
