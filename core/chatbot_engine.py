@@ -58,8 +58,8 @@ class ChatbotEngine:
                 "keywords": [추출된 키워드]
             }
         """
-        # 1. 최근 공지 조회
-        recent_notices = self._get_recent_notices(limit=10)
+        # 1. 최근 공지 조회 (기본값 50개)
+        recent_notices = self._get_recent_notices()
 
         # 2. 컨텍스트 구성
         context = self._build_context(recent_notices)
@@ -95,38 +95,48 @@ class ChatbotEngine:
             "keywords": keywords
         }
 
-    def _get_recent_notices(self, limit: int = 10) -> List[Dict]:
+    def _get_recent_notices(self, limit: int = 50) -> List[Dict]:
         """
         최근 공지 조회 (통합 DB)
 
         Args:
-            limit: 조회할 공지 개수
+            limit: 조회할 공지 개수 (기본값 50개로 증가)
 
         Returns:
-            공지 리스트
+            공지 리스트 (날짜 기준 내림차순)
         """
         with get_conn() as conn:
             if USE_POSTGRES:
-                # PostgreSQL
+                # PostgreSQL - date 필드 기준 정렬 (NULL이면 created_at 사용)
                 cur = conn.cursor()
                 cur.execute("""
                     SELECT post_id, title, content, department, date, type
                     FROM notices
-                    ORDER BY created_at DESC
+                    ORDER BY
+                        CASE
+                            WHEN date IS NOT NULL THEN date::date
+                            ELSE (created_at / 1000)::int::abstime::date
+                        END DESC,
+                        post_id DESC
                     LIMIT %s
                 """, (limit,))
                 rows = cur.fetchall()
                 columns = [desc[0] for desc in cur.description]
                 return [dict(zip(columns, row)) for row in rows]
             else:
-                # SQLite
+                # SQLite - date 필드 기준 정렬
                 cur = conn.execute("""
                     SELECT post_id, title, content,
                            COALESCE(department, '전체') as department,
                            COALESCE(date, strftime('%Y-%m-%d', created_at/1000, 'unixepoch')) as date,
                            type
                     FROM notices
-                    ORDER BY created_at DESC
+                    ORDER BY
+                        CASE
+                            WHEN date IS NOT NULL THEN date
+                            ELSE strftime('%Y-%m-%d', created_at/1000, 'unixepoch')
+                        END DESC,
+                        post_id DESC
                     LIMIT ?
                 """, (limit,))
                 return [dict(r) for r in cur.fetchall()]
@@ -404,16 +414,16 @@ class ChatbotEngine:
         import service
         return service.confirm_popup_action(self.user_id, popup_id)
 
-    def search_notices(self, keyword: str, limit: int = 5) -> List[Dict]:
+    def search_notices(self, keyword: str, limit: int = 20) -> List[Dict]:
         """
         키워드로 공지 검색
 
         Args:
             keyword: 검색 키워드
-            limit: 최대 결과 수
+            limit: 최대 결과 수 (기본값 20개로 증가)
 
         Returns:
-            검색된 공지 리스트
+            검색된 공지 리스트 (날짜 기준 내림차순)
         """
         with get_conn() as conn:
             if USE_POSTGRES:
@@ -421,10 +431,15 @@ class ChatbotEngine:
                 cur.execute("""
                     SELECT post_id, title, content, department, date, type
                     FROM notices
-                    WHERE title LIKE %s OR content LIKE %s
-                    ORDER BY created_at DESC
+                    WHERE title LIKE %s OR content LIKE %s OR department LIKE %s
+                    ORDER BY
+                        CASE
+                            WHEN date IS NOT NULL THEN date::date
+                            ELSE (created_at / 1000)::int::abstime::date
+                        END DESC,
+                        post_id DESC
                     LIMIT %s
-                """, (f"%{keyword}%", f"%{keyword}%", limit))
+                """, (f"%{keyword}%", f"%{keyword}%", f"%{keyword}%", limit))
                 rows = cur.fetchall()
                 columns = [desc[0] for desc in cur.description]
                 return [dict(zip(columns, row)) for row in rows]
@@ -435,8 +450,13 @@ class ChatbotEngine:
                            COALESCE(date, strftime('%Y-%m-%d', created_at/1000, 'unixepoch')) as date,
                            type
                     FROM notices
-                    WHERE title LIKE ? OR content LIKE ?
-                    ORDER BY created_at DESC
+                    WHERE title LIKE ? OR content LIKE ? OR department LIKE ?
+                    ORDER BY
+                        CASE
+                            WHEN date IS NOT NULL THEN date
+                            ELSE strftime('%Y-%m-%d', created_at/1000, 'unixepoch')
+                        END DESC,
+                        post_id DESC
                     LIMIT ?
-                """, (f"%{keyword}%", f"%{keyword}%", limit))
+                """, (f"%{keyword}%", f"%{keyword}%", f"%{keyword}%", limit))
                 return [dict(r) for r in cur.fetchall()]
