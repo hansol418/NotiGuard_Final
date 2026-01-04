@@ -233,7 +233,7 @@ class ChatbotEngine:
 
 **사용자 질문:** {user_query}
 
-위 공지사항을 참고하여 답변해주세요.
+위 공지사항을 참고하여 답변해주세요."""
 
     def _call_potens_api(self, prompt: str) -> str:
         """
