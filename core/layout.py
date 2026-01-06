@@ -174,14 +174,15 @@ def render_floating_widget(*, img_path: str, width_px: int = 200, bottom_px: int
                 background-position: center;
             `;
 
-            // 말풍선 생성 ("질문하세요")
+            // 말풍선 생성 ("질문해주세요! 💬")
             const bubble = doc.createElement('div');
             bubble.id = 'chatbot-bubble';
             bubble.innerHTML = '질문해주세요! 💬';
             bubble.style.cssText = `
                 position: fixed;
-                right: {right_px}px;
-                bottom: {bottom_px + width_px + 5}px;
+                right: {right_px + width_px + 15}px;
+                bottom: {bottom_px + int(width_px/2)}px;
+                transform: translateY(50%);
                 background-color: #fff;
                 color: #111827;
                 padding: 8px 14px;
@@ -193,7 +194,7 @@ def render_floating_widget(*, img_path: str, width_px: int = 200, bottom_px: int
                 z-index: 999999;
                 pointer-events: none;
                 white-space: nowrap;
-                animation: floatBubble 2s ease-in-out infinite alternate;
+                animation: floatBubbleLeft 2s ease-in-out infinite alternate;
                 opacity: 1;
             `;
             
@@ -202,9 +203,9 @@ def render_floating_widget(*, img_path: str, width_px: int = 200, bottom_px: int
                 const style = doc.createElement('style');
                 style.id = 'chatbot-bubble-style';
                 style.innerHTML = `
-                    @keyframes floatBubble {{
-                        0% {{ transform: translateY(0); }}
-                        100% {{ transform: translateY(-6px); }}
+                    @keyframes floatBubbleLeft {{
+                        0% {{ transform: translateY(50%); }}
+                        100% {{ transform: translateY(calc(50% - 6px)); }}
                     }}
                 `;
                 doc.head.appendChild(style);
