@@ -221,7 +221,7 @@ with col_history:
                     session_data["name"],
                     key=f"session_{session_id}",
                     use_container_width=True,
-                    type=button_type if is_current else None,
+                    type=button_type,
                 ):
                     st.session_state.current_session_id = session_id
                     st.rerun()
