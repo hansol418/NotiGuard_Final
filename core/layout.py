@@ -180,10 +180,10 @@ def render_floating_widget(*, img_path: str, width_px: int = 200, bottom_px: int
             bubble.innerHTML = '질문해주세요! 💬';
             bubble.style.cssText = `
                 position: fixed;
-                right: {right_px + width_px + 15}px;
+                right: {right_px + width_px + 5}px;
                 bottom: {bottom_px + int(width_px/2)}px;
                 transform: translateY(50%);
-                background-color: #fff;
+                background-color: #f3f4f6;
                 color: #111827;
                 padding: 8px 14px;
                 border-radius: 20px;
