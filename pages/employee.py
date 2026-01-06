@@ -631,38 +631,43 @@ elif menu == "게시판":
             if not posts:
                 st.info("등록된 게시글이 없습니다.")
             else:
-                table_rows = [
-                    {
-                        "번호": p["postId"],
-                        "제목": p["title"],
-                        "작성자": p["author"],
-                        "작성일": fmt_dt(p["timestamp"]),
-                        "조회": p["views"],
-                    }
-                    for p in posts
-                ]
+                # 테이블 헤더
+                h_col1, h_col2, h_col3, h_col4, h_col5 = st.columns([0.8, 4, 1.5, 2, 1])
+                h_col1.markdown("**:gray[번호]**")
+                h_col2.markdown("**:gray[제목 (클릭하여 확인)]**")
+                h_col3.markdown("**:gray[작성자]**")
+                h_col4.markdown("**:gray[작성일]**")
+                h_col5.markdown("**:gray[조회]**")
+                st.divider()
 
-                event = st.dataframe(
-                    table_rows,
-                    width="stretch",
-                    hide_index=True,
-                    key="emp_board_table",
-                    on_select="rerun",
-                    selection_mode="single-row",
-                )
-
-                #  행 클릭 시 상세 진입 (여기서 rerun이 한 번 더 도는 게 정상)
-                try:
-                    if event is not None and event.selection.rows:
-                        row_idx = event.selection.rows[0]
-                        clicked_post_id = int(table_rows[row_idx]["번호"])
-
-                        # (선택) 같은 글을 다시 클릭해도 상세로 들어가긴 해야 하므로
-                        # 상세 진입 게이트는 상세 화면에서만 처리.
-                        st.session_state.selected_post_id = clicked_post_id
+                # 게시글 목록 반복
+                for p in posts:
+                    row_c1, row_c2, row_c3, row_c4, row_c5 = st.columns([0.8, 4, 1.5, 2, 1])
+                    
+                    # 번호
+                    row_c1.text(str(p["postId"]))
+                    
+                    # 제목 (버튼으로 구현하여 클릭 가능하게)
+                    # 제목이 너무 길면 잘릴 수 있으므로 help에 전체 제목 표시
+                    if row_c2.button(
+                        p["title"], 
+                        key=f"post_title_btn_{p['postId']}", 
+                        use_container_width=True,
+                    ):
+                        st.session_state.selected_post_id = int(p["postId"])
                         st.rerun()
-                except Exception:
-                    pass
-
+                    
+                    # 작성자
+                    row_c3.text(p["author"])
+                    
+                    # 작성일
+                    row_c4.text(fmt_dt(p["timestamp"]))
+                    
+                    # 조회수
+                    row_c5.text(str(p["views"]))
+                    
+                    # 구분선 (너무 진하지 않게)
+                    st.markdown("<hr style='margin: 0.2rem 0; border-top: 1px dashed #eee;'>", unsafe_allow_html=True)
+                    
 else:
     st.info("준비 중인 메뉴입니다.")

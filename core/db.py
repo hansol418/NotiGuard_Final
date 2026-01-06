@@ -246,6 +246,49 @@ def _add_chat_logs_table_sqlite(conn):
         """)
         print("✅ chat_logs 테이블 생성 완료")
 
+    # chat_sessions 테이블 추가 (대화 세션 관리용)
+    cur = conn.execute("""
+        SELECT name FROM sqlite_master
+        WHERE type='table' AND name='chat_sessions'
+    """)
+    if cur.fetchone() is None:
+        conn.execute("""
+            CREATE TABLE chat_sessions (
+                session_id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                name TEXT NOT NULL,
+                created_at INTEGER NOT NULL,
+                updated_at INTEGER NOT NULL
+            )
+        """)
+        conn.execute("""
+            CREATE INDEX idx_chat_sessions_user ON chat_sessions(user_id)
+        """)
+        print("✅ chat_sessions 테이블 생성 완료")
+
+    # chat_messages 테이블 추가 (세션별 메시지)
+    cur = conn.execute("""
+        SELECT name FROM sqlite_master
+        WHERE type='table' AND name='chat_messages'
+    """)
+    if cur.fetchone() is None:
+        conn.execute("""
+            CREATE TABLE chat_messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id TEXT NOT NULL,
+                role TEXT NOT NULL,
+                content TEXT NOT NULL,
+                notice_refs TEXT,
+                notice_details TEXT,
+                created_at INTEGER NOT NULL,
+                FOREIGN KEY(session_id) REFERENCES chat_sessions(session_id) ON DELETE CASCADE
+            )
+        """)
+        conn.execute("""
+            CREATE INDEX idx_chat_messages_session ON chat_messages(session_id)
+        """)
+        print("✅ chat_messages 테이블 생성 완료")
+
 
 def _add_notices_columns_sqlite(conn):
     """SQLite notices 테이블에 department, date 컬럼 추가"""

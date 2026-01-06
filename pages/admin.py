@@ -386,34 +386,41 @@ elif menu == "게시판":
             if not posts:
                 st.info("등록된 게시글이 없습니다.")
             else:
-                table_rows = [
-                    {
-                        "번호": p["postId"],
-                        "제목": p["title"],
-                        "작성자": p["author"],
-                        "작성일": fmt_dt(p["timestamp"]),
-                        "조회": p["views"],
-                    }
-                    for p in posts
-                ]
+                # 테이블 헤더
+                h_col1, h_col2, h_col3, h_col4, h_col5 = st.columns([0.8, 4, 1.5, 2, 1])
+                h_col1.markdown("**:gray[번호]**")
+                h_col2.markdown("**:gray[제목 (클릭하여 확인)]**")
+                h_col3.markdown("**:gray[작성자]**")
+                h_col4.markdown("**:gray[작성일]**")
+                h_col5.markdown("**:gray[조회]**")
+                st.divider()
 
-                event = st.dataframe(
-                    table_rows,
-                    width="stretch",
-                    hide_index=True,
-                    key="admin_board_table",
-                    on_select="rerun",
-                    selection_mode="single-row",
-                )
-
-                try:
-                    if event is not None and event.selection.rows:
-                        row_idx = event.selection.rows[0]
-                        clicked_post_id = int(table_rows[row_idx]["번호"])
-                        st.session_state.selected_post_id = clicked_post_id
+                # 게시글 목록 반복
+                for p in posts:
+                    row_c1, row_c2, row_c3, row_c4, row_c5 = st.columns([0.8, 4, 1.5, 2, 1])
+                    
+                    # 번호
+                    row_c1.text(str(p["postId"]))
+                    
+                    # 제목 (버튼으로 구현)
+                    if row_c2.button(
+                        p["title"], 
+                        key=f"admin_post_title_{p['postId']}", 
+                        use_container_width=True,
+                    ):
+                        st.session_state.selected_post_id = int(p["postId"])
                         st.rerun()
-                except Exception:
-                    pass
+                    
+                    # 작성자
+                    row_c3.text(p["author"])
+                    
+                    # 작성일
+                    row_c4.text(fmt_dt(p["timestamp"]))
+                    
+                    # 조회수
+                    row_c5.text(str(p["views"]))
+                    
+                    st.markdown("<hr style='margin: 0.2rem 0; border-top: 1px dashed #eee;'>", unsafe_allow_html=True)
 
 elif menu == "글쓰기":
     st.subheader("새글쓰기")

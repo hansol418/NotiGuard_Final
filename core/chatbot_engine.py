@@ -73,21 +73,51 @@ class ChatbotEngine:
         # 5. 응답 타입 분류
         response_type = self._detect_response_type(response_text)
 
-        # 6. 참조 공지 추출
+        # 6. 참조 공지 추출 (LLM 답변 내 [제목] 등 매칭)
         notice_refs = self._extract_notice_refs(response_text, recent_notices)
+        
+        # 추가 공지 풀 (검색 결과 저장용)
+        extra_notices = []
 
-        # 6-1. 참조 공지 상세 정보 생성 (ID + 제목)
+        # 6-1. 키워드 추출
+        keywords = self._extract_keywords(user_query)
+
+        # 6-2. 만약 참조된 공지가 없다면, 키워드 검색으로 보완
+        if not notice_refs and response_type == "NORMAL":
+            # 가장 긴 키워드 우선 사용 (구체적일 확률 높음)
+            search_keywords = sorted(keywords, key=len, reverse=True)
+            for kw in search_keywords[:2]:  # 상위 2개 키워드로 시도
+                found = self.search_notices(kw, limit=3)
+                if found:
+                    for f in found:
+                        if f['post_id'] not in notice_refs:
+                            notice_refs.append(f['post_id'])
+                            extra_notices.append(f)
+                    
+                    # 3개 찾으면 중단
+                    if len(notice_refs) >= 3:
+                        notice_refs = notice_refs[:3]
+                        break
+        
+        # 7. 참조 공지 상세 정보 생성 (ID + 제목)
+        # recent_notices와 extra_notices를 합쳐서 조회
+        all_pool = recent_notices + extra_notices
+        # 중복 제거 (딕셔너리는 해시 불가능하므로 post_id 기준)
+        seen_ids = set()
+        unique_pool = []
+        for n in all_pool:
+            if n['post_id'] not in seen_ids:
+                unique_pool.append(n)
+                seen_ids.add(n['post_id'])
+
         notice_details = []
         for ref_id in notice_refs:
-            notice = next((n for n in recent_notices if n['post_id'] == ref_id), None)
+            notice = next((n for n in unique_pool if n['post_id'] == ref_id), None)
             if notice:
                 notice_details.append({
                     "post_id": ref_id,
                     "title": notice['title']
                 })
-
-        # 7. 키워드 추출
-        keywords = self._extract_keywords(user_query)
 
         # 8. 로그 저장
         self._save_chat_log(
@@ -105,7 +135,6 @@ class ChatbotEngine:
             "notice_details": notice_details,  # 제목 포함 상세 정보 추가
             "keywords": keywords
         }
-
     def _get_recent_notices(self, limit: int = 100) -> List[Dict]:
         """
         최근 공지 조회 (통합 DB)

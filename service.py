@@ -627,3 +627,126 @@ def update_inquiry_status(inquiry_id: int, new_status: str) -> bool:
     except Exception as e:
         print(f"문의 상태 업데이트 실패: {e}")
         return False
+
+# -------------------------
+# 챗봇 세션 관리 (DB 기반)
+# -------------------------
+def create_chat_session(user_id: str, name: str = "새 대화") -> str:
+    """새 대화 세션 생성"""
+    import uuid
+    session_id = str(uuid.uuid4())
+    ts = now_ms()
+    
+    with get_conn() as conn:
+        conn.execute(
+            """
+            INSERT INTO chat_sessions(session_id, user_id, name, created_at, updated_at)
+            VALUES(?,?,?,?,?)
+            """,
+            (session_id, user_id, name, ts, ts),
+        )
+    return session_id
+
+def get_user_chat_sessions(user_id: str) -> List[Dict]:
+    """사용자의 대화 세션 목록 조회"""
+    with get_conn() as conn:
+        cur = conn.execute(
+            """
+            SELECT session_id, user_id, name, created_at, updated_at
+            FROM chat_sessions
+            WHERE user_id = ?
+            ORDER BY updated_at DESC
+            """,
+            (user_id,),
+        )
+        rows = cur.fetchall()
+        
+    result = []
+    for r in rows:
+        result.append({
+            "session_id": r["session_id"],
+            "user_id": r["user_id"],
+            "name": r["name"],
+            "created_at": r["created_at"],
+            "updated_at": r["updated_at"],
+        })
+    return result
+
+def update_chat_session_name(session_id: str, name: str) -> bool:
+    """세션 이름 변경"""
+    ts = now_ms()
+    with get_conn() as conn:
+        cur = conn.execute(
+            "UPDATE chat_sessions SET name = ?, updated_at = ? WHERE session_id = ?",
+            (name, ts, session_id),
+        )
+        return cur.rowcount > 0
+
+def delete_chat_session(session_id: str) -> bool:
+    """세션 삭제"""
+    with get_conn() as conn:
+        # FK ON DELETE CASCADE가 동작하지 않을 수 있으므로 메시지 먼저 삭제
+        conn.execute("DELETE FROM chat_messages WHERE session_id = ?", (session_id,))
+        cur = conn.execute("DELETE FROM chat_sessions WHERE session_id = ?", (session_id,))
+        return cur.rowcount > 0
+
+def add_chat_message(session_id: str, role: str, content: str, notice_refs: List[int] = None, notice_details: List[Dict] = None) -> bool:
+    """메시지 추가"""
+    ts = now_ms()
+    import json
+    
+    refs_json = json.dumps(notice_refs) if notice_refs else None
+    details_json = json.dumps(notice_details, ensure_ascii=False) if notice_details else None
+    
+    with get_conn() as conn:
+        conn.execute(
+            """
+            INSERT INTO chat_messages(session_id, role, content, notice_refs, notice_details, created_at)
+            VALUES(?,?,?,?,?,?)
+            """,
+            (session_id, role, content, refs_json, details_json, ts),
+        )
+        # 세션 업데이트 시간 갱신
+        conn.execute("UPDATE chat_sessions SET updated_at = ? WHERE session_id = ?", (ts, session_id))
+        
+    return True
+
+def get_chat_messages(session_id: str) -> List[Dict]:
+    """세션의 메시지 목록 조회"""
+    import json
+    with get_conn() as conn:
+        cur = conn.execute(
+            """
+            SELECT role, content, notice_refs, notice_details, created_at
+            FROM chat_messages
+            WHERE session_id = ?
+            ORDER BY id ASC
+            """,
+            (session_id,),
+        )
+        rows = cur.fetchall()
+        
+    result = []
+    for r in rows:
+        refs = []
+        if r["notice_refs"]:
+            try:
+                refs = json.loads(r["notice_refs"])
+            except:
+                pass
+                
+        details = []
+        if r["notice_details"]:
+            try:
+                details = json.loads(r["notice_details"])
+            except:
+                pass
+        
+        result.append({
+            "role": r["role"],
+            "content": r["content"],
+            "notice_refs": refs,
+            "notice_details": details,
+            "created_at": r["created_at"],
+        })
+    return result
