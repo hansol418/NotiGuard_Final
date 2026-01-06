@@ -120,7 +120,7 @@ PORTAL_PRIMARY = "#139fb0"
 PORTAL_BG = "#f5f7fb"
 CARD_BORDER = "rgba(17,24,39,0.10)"
 
-def render_floating_widget(*, img_path: str, width_px: int = 200, bottom_px: int = 20, right_px: int = 20):
+def render_floating_widget(*, img_path: str, width_px: int = 200, bottom_px: int = 20, right_px: int = 20, on_click=None):
     """
     우측 하단 플로팅 '이미지 위젯' - 클릭 시 챗봇 모달 열기
     - width_px: 이미지 너비 기준(비율 유지)
@@ -139,9 +139,7 @@ def render_floating_widget(*, img_path: str, width_px: int = 200, bottom_px: int
     data_url = f"data:{mime};base64,{b64}"
 
     # 버튼 생성
-    if st.button("open", key="floating_chatbot_trigger"):
-        st.session_state._chatbot_modal_open = True
-        st.rerun()
+    st.button("open", key="floating_chatbot_trigger", on_click=on_click)
 
     # 플로팅 위젯 생성 + 버튼 숨김 처리
     components.html(

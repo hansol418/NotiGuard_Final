@@ -51,8 +51,14 @@ st.session_state.setdefault("selected_inquiry_id", None)
 st.session_state.setdefault("inquiry_filter_status", "전체")
 st.session_state.setdefault("inquiry_filter_dept", "전체")
 
+# 챗봇 모달
+@st.dialog("노티가드 AI 챗봇", width="large")
+def chatbot_modal():
+    from core.layout import render_chatbot_modal
+    render_chatbot_modal(user_id="admin")
+
 apply_portal_theme(hide_pages_sidebar_nav=True, hide_sidebar=False, active_menu=st.session_state.admin_menu)
-render_floating_widget(img_path="assets/chatimg_r.png")
+render_floating_widget(img_path="assets/chatimg_r.png", on_click=chatbot_modal)
 
 DEPARTMENTS = [
     "미래전략실",
@@ -678,15 +684,4 @@ elif menu == "문의관리":
                 except Exception:
                     pass
 
-# -------------------------
-# 챗봇 모달
-# -------------------------
-@st.dialog("노티가드 AI 챗봇", width="large")
-def chatbot_modal():
-    from core.layout import render_chatbot_modal
-    render_chatbot_modal(user_id="admin")
 
-# 모달 상태 체크
-st.session_state.setdefault("_chatbot_modal_open", False)
-if st.session_state._chatbot_modal_open:
-    chatbot_modal()

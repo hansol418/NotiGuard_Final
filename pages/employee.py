@@ -82,7 +82,14 @@ apply_portal_theme(
 
 portal_sidebar(role="EMPLOYEE", active_menu=st.session_state.emp_menu, on_menu_change=on_menu_change)
 render_topbar("전사 Portal")
-render_floating_widget(img_path="assets/chatimg_r.png")
+# 챗봇 모달 정의
+@st.dialog("노티가드 AI 챗봇", width="large")
+def chatbot_modal():
+    from core.layout import render_chatbot_modal
+    employee_id = st.session_state.get("employee_id", "guest")
+    render_chatbot_modal(user_id=employee_id)
+
+render_floating_widget(img_path="assets/chatimg_r.png", on_click=chatbot_modal)
 
 menu = st.session_state.emp_menu
 
@@ -482,19 +489,7 @@ def popup_banner_dialog(payload: dict):
             st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
 
-# =========================================================
-#   챗봇 모달 정의 및 체크 (메뉴 렌더링 전에 위치해야 함)
-# =========================================================
-@st.dialog("노티가드 AI 챗봇", width="large")
-def chatbot_modal():
-    from core.layout import render_chatbot_modal
-    employee_id = st.session_state.get("employee_id", "guest")
-    render_chatbot_modal(user_id=employee_id)
 
-# 챗봇 모달 상태 체크
-st.session_state.setdefault("_chatbot_modal_open", False)
-if st.session_state._chatbot_modal_open:
-    chatbot_modal()
 
 # =========================================================
 #   요약 모달 트리거 (중요공지 dialog 밖에서 호출)
