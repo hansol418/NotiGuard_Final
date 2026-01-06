@@ -144,12 +144,12 @@ with col_chat:
         # 챗봇 인사말 및 안내
         st.markdown("""
         <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                    padding: 24px; 
+                    padding: 16px 20px; 
                     border-radius: 12px; 
-                    margin-bottom: 20px;
+                    margin-bottom: 16px;
                     color: white;">
-            <h3 style="margin: 0 0 12px 0; color: white;">👋 안녕하세요!</h3>
-            <p style="margin: 0; font-size: 16px; line-height: 1.6;">
+            <h3 style="margin: 0 0 8px 0; color: white; font-size: 20px;">👋 안녕하세요!</h3>
+            <p style="margin: 0; font-size: 15px; line-height: 1.5;">
                 저는 노티가드 AI 챗봇입니다.<br>
                 효성전기의 공지사항과 관련된 질문에 답변해 드립니다.<br>
                 궁금한 점을 편하게 물어보세요!
@@ -192,14 +192,11 @@ with col_chat:
             st.divider()
         
         # 채팅 메시지 표시
-        chat_container = st.container(height=400, border=True)
+        chat_container = st.container(height=450, border=True)
         with chat_container:
-            if len(current_session["messages"]) == 0:
-                st.info("👆 위의 예시 질문을 클릭하거나 아래에 메시지를 입력하세요.")
-            else:
-                for msg in current_session["messages"]:
-                    with st.chat_message(msg["role"]):
-                        st.markdown(msg["content"])
+            for msg in current_session["messages"]:
+                with st.chat_message(msg["role"]):
+                    st.markdown(msg["content"])
         
         # 채팅 입력창 (채팅 기록 밑에 위치)
         st.markdown("---")
