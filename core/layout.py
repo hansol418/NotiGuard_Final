@@ -177,11 +177,11 @@ def render_floating_widget(*, img_path: str, width_px: int = 200, bottom_px: int
             // 말풍선 생성 ("질문하세요")
             const bubble = doc.createElement('div');
             bubble.id = 'chatbot-bubble';
-            bubble.innerHTML = '질문하세요! 💬';
+            bubble.innerHTML = '질문해주세요! 💬';
             bubble.style.cssText = `
                 position: fixed;
                 right: {right_px}px;
-                bottom: {bottom_px + width_px + 12}px;
+                bottom: {bottom_px + width_px + 5}px;
                 background-color: #fff;
                 color: #111827;
                 padding: 8px 14px;
