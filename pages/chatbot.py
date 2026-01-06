@@ -189,17 +189,9 @@ with col_chat:
                         
                         st.rerun()
             
-            st.divider()
+            st.markdown("")  # 약간의 여백
         
-        # 채팅 메시지 표시
-        chat_container = st.container(height=450, border=True)
-        with chat_container:
-            for msg in current_session["messages"]:
-                with st.chat_message(msg["role"]):
-                    st.markdown(msg["content"])
-        
-        # 채팅 입력창 (채팅 기록 밑에 위치)
-        st.markdown("---")
+        # 채팅 입력창 (상단에 위치)
         prompt = st.chat_input("메시지를 입력하세요...", key="chatbot_input")
         
         if prompt:
@@ -220,6 +212,12 @@ with col_chat:
                 })
             
             st.rerun()
+        
+        # 채팅 메시지 표시 (입력창 아래, border 없음)
+        st.markdown("")  # 약간의 여백
+        for msg in current_session["messages"]:
+            with st.chat_message(msg["role"]):
+                st.markdown(msg["content"])
         
         # 하단 버튼
         col1, col2 = st.columns([1, 1])
