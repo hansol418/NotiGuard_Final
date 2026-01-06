@@ -150,9 +150,11 @@ def render_floating_widget(*, img_path: str, width_px: int = 200, bottom_px: int
         (function() {{
             const doc = window.parent.document;
 
-            // 기존 위젯 제거
+            // 기존 요소 제거
             const old = doc.getElementById('floating-chatbot-widget');
             if (old) old.remove();
+            const oldBubble = doc.getElementById('chatbot-bubble');
+            if (oldBubble) oldBubble.remove();
 
             // 플로팅 위젯 생성
             const widget = doc.createElement('div');
@@ -161,7 +163,7 @@ def render_floating_widget(*, img_path: str, width_px: int = 200, bottom_px: int
                 position: fixed;
                 right: {right_px}px;
                 bottom: {bottom_px}px;
-                z-index: 999999;
+                z-index: 999998;
                 width: {width_px}px;
                 height: {width_px}px;
                 cursor: pointer;
@@ -172,6 +174,42 @@ def render_floating_widget(*, img_path: str, width_px: int = 200, bottom_px: int
                 background-position: center;
             `;
 
+            // 말풍선 생성 ("질문하세요")
+            const bubble = doc.createElement('div');
+            bubble.id = 'chatbot-bubble';
+            bubble.innerHTML = '질문하세요! 💬';
+            bubble.style.cssText = `
+                position: fixed;
+                right: {right_px}px;
+                bottom: {bottom_px + width_px + 12}px;
+                background-color: #fff;
+                color: #111827;
+                padding: 8px 14px;
+                border-radius: 20px;
+                border-bottom-right-radius: 4px;
+                box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+                font-size: 14px;
+                font-weight: 800;
+                z-index: 999999;
+                pointer-events: none;
+                white-space: nowrap;
+                animation: floatBubble 2s ease-in-out infinite alternate;
+                opacity: 1;
+            `;
+            
+            // 애니메이션 키프레임 (이미 존재하면 생략)
+            if (!doc.getElementById('chatbot-bubble-style')) {{
+                const style = doc.createElement('style');
+                style.id = 'chatbot-bubble-style';
+                style.innerHTML = `
+                    @keyframes floatBubble {{
+                        0% {{ transform: translateY(0); }}
+                        100% {{ transform: translateY(-6px); }}
+                    }}
+                `;
+                doc.head.appendChild(style);
+            }}
+
             widget.onmouseenter = () => {{
                 widget.style.transform = 'translateY(-2px)';
                 widget.style.filter = 'drop-shadow(0 22px 42px rgba(0,0,0,0.34))';
@@ -181,6 +219,8 @@ def render_floating_widget(*, img_path: str, width_px: int = 200, bottom_px: int
                 widget.style.filter = '';
             }};
             widget.onclick = () => {{
+                if (bubble) bubble.remove();
+                
                 const buttons = doc.querySelectorAll('button');
                 for (let btn of buttons) {{
                     if ((btn.textContent || '').trim() === 'open') {{
@@ -191,21 +231,14 @@ def render_floating_widget(*, img_path: str, width_px: int = 200, bottom_px: int
             }};
 
             doc.body.appendChild(widget);
+            doc.body.appendChild(bubble);
 
             // "open" 버튼 숨기기 - 여러 번 시도
             function hideOpenButton() {{
                 const buttons = doc.querySelectorAll('button');
                 buttons.forEach(btn => {{
                     if ((btn.textContent || '').trim() === 'open') {{
-                        // 버튼 자체 숨김
                         btn.style.display = 'none';
-                        btn.style.visibility = 'hidden';
-                        btn.style.opacity = '0';
-                        btn.style.position = 'absolute';
-                        btn.style.width = '0';
-                        btn.style.height = '0';
-
-                        // 부모 요소도 숨김
                         if (btn.parentElement) {{
                             btn.parentElement.style.display = 'none';
                         }}
