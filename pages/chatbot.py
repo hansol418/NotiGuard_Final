@@ -53,7 +53,7 @@ render_topbar("전사 Portal")
 # -------------------------
 
 # 채팅 히스토리 초기화 (대화 세션)
-st.session_state.setdefault("chatbot_sessions", {})  # {session_id: {name, messages}}
+st.session_state.setdefault("chatbot_sessions", {})  # {session_id: {name, messages, timestamp}}
 st.session_state.setdefault("current_session_id", None)
 st.session_state.setdefault("session_counter", 0)
 
@@ -65,13 +65,39 @@ else:
 engine = ChatbotEngine(user_id=user_id)
 
 # 대화 히스토리 관리 함수
-def create_new_session():
-    """새 대화 세션 생성"""
+def create_new_session(initial_messages=None):
+    """새 대화 세션 생성
+    
+    Args:
+        initial_messages: 초기 메시지 리스트 (모달에서 가져온 경우)
+    """
     st.session_state.session_counter += 1
     session_id = f"session_{st.session_state.session_counter}"
+    
+    messages = initial_messages if initial_messages else []
+    
+    # AI로 세션 이름 생성 (첫 사용자 메시지가 있는 경우)
+    session_name = f"새 대화 {st.session_state.session_counter}"
+    if messages:
+        # 첫 번째 사용자 메시지 찾기
+        first_user_msg = None
+        for msg in messages:
+            if msg["role"] == "user":
+                first_user_msg = msg["content"]
+                break
+        
+        if first_user_msg:
+            try:
+                # AI로 요약
+                session_name = engine.summarize_query(first_user_msg)
+            except:
+                # 실패 시 기본 이름
+                session_name = f"새 대화 {st.session_state.session_counter}"
+    
     st.session_state.chatbot_sessions[session_id] = {
-        "name": f"대화 {st.session_state.session_counter}",
-        "messages": []
+        "name": session_name,
+        "messages": messages,
+        "timestamp": int(time.time() * 1000)
     }
     st.session_state.current_session_id = session_id
     return session_id
@@ -86,6 +112,29 @@ def delete_session(session_id):
                 st.session_state.current_session_id = list(st.session_state.chatbot_sessions.keys())[0]
             else:
                 st.session_state.current_session_id = None
+
+def update_session_name_if_needed(session_id):
+    """세션 이름이 기본 형식이고 메시지가 있으면 AI로 업데이트"""
+    session = st.session_state.chatbot_sessions.get(session_id)
+    if not session:
+        return
+    
+    # 기본 이름 형식("새 대화 N")이고 메시지가 있는 경우만 업데이트
+    if session["name"].startswith("새 대화") and session["messages"]:
+        # 첫 번째 사용자 메시지 찾기
+        first_user_msg = None
+        for msg in session["messages"]:
+            if msg["role"] == "user":
+                first_user_msg = msg["content"]
+                break
+        
+        if first_user_msg:
+            try:
+                # AI로 요약
+                new_name = engine.summarize_query(first_user_msg)
+                session["name"] = new_name
+            except:
+                pass  # 실패 시 기존 이름 유지
 
 # -------------------------
 # 담당자 문의 다이얼로그
@@ -182,9 +231,23 @@ def email_dialog(user_query: str):
             st.rerun()
 
 
+# -------------------------
+# 모달 대화를 세션으로 가져오기
+# -------------------------
+# 모달에서 대화한 내용이 있으면 새 세션으로 저장
+if "modal_chat_messages" in st.session_state and st.session_state.modal_chat_messages:
+    # 첫 로딩 시에만 처리 (플래그 사용)
+    if not st.session_state.get("_modal_imported", False):
+        create_new_session(initial_messages=st.session_state.modal_chat_messages.copy())
+        st.session_state.modal_chat_messages = []  # 모달 메시지 초기화
+        st.session_state._modal_imported = True
+
 # 첫 세션이 없으면 생성
 if not st.session_state.chatbot_sessions:
     create_new_session()
+else:
+    # 페이지 로드 시 플래그 초기화 (다음 모달 import를 위해)
+    st.session_state._modal_imported = False
 
 # 현재 세션이 없으면 첫 세션으로 설정
 if st.session_state.current_session_id is None and st.session_state.chatbot_sessions:
@@ -277,6 +340,10 @@ with col_chat:
                             "content": question
                         })
                         
+                        # 첫 메시지인 경우 세션 이름 업데이트
+                        if len(current_session["messages"]) == 1:
+                            update_session_name_if_needed(st.session_state.current_session_id)
+                        
                         # 챗봇 응답 생성
                         with st.spinner("답변 생성 중..."):
                             result = engine.ask(question)
@@ -304,6 +371,10 @@ with col_chat:
                 "role": "user",
                 "content": prompt
             })
+            
+            # 첫 메시지인 경우 세션 이름 업데이트
+            if len(current_session["messages"]) == 1:
+                update_session_name_if_needed(st.session_state.current_session_id)
             
             # 챗봇 응답 생성
             with st.spinner("답변 생성 중..."):
