@@ -8,6 +8,9 @@ from core.layout import (
     render_floating_widget,
 )
 from core.chatbot_engine import ChatbotEngine
+from core.config import DEPARTMENT_EMAILS, ADMIN_EMAIL
+from core.email_utils import send_email
+import time
 
 st.set_page_config(page_title="Chatbot", layout="wide")
 
@@ -81,6 +84,101 @@ def delete_session(session_id):
                 st.session_state.current_session_id = list(st.session_state.chatbot_sessions.keys())[0]
             else:
                 st.session_state.current_session_id = None
+
+# -------------------------
+# 담당자 문의 다이얼로그
+# -------------------------
+@st.dialog("📧 담당자에게 문의하기", width="large")
+def email_dialog(user_query: str):
+    """담당자 이메일 문의 다이얼로그"""
+    
+    # 세션 상태 초기화
+    if "email_dialog_query" not in st.session_state or st.session_state.email_dialog_query != user_query:
+        st.session_state.email_dialog_query = user_query
+        
+        # 직원 정보 가져오기
+        emp_info = st.session_state.get("employee_info") or {}
+        dept = emp_info.get("department", "")
+        name = emp_info.get("name", "")
+        user_info_str = f"\n\n[작성자 정보]\n소속: {dept}\n이름: {name}" if dept else ""
+        
+        # AI로 부서 자동 감지
+        detected_dept = engine.detect_target_department(user_query)
+        st.session_state.mail_dept = detected_dept if detected_dept in DEPARTMENT_EMAILS else list(DEPARTMENT_EMAILS.keys())[0]
+        
+        # AI로 내용 자동 다듬기
+        with st.spinner("AI가 문의 내용을 작성하고 있습니다..."):
+            initial_draft = f"질문 내용: {user_query}{user_info_str}\n\n[추가 문의 사항을 작성해주세요]"
+            refined_content = engine.refine_email_content(
+                st.session_state.mail_dept,
+                user_query,
+                initial_draft
+            )
+            st.session_state.mail_body = refined_content
+    
+    st.write("AI가 자동으로 담당 부서를 분석하고 공식적인 문의 내용을 작성했습니다.")
+    st.info(f"💬 원본 질문: {user_query}")
+    
+    # 부서 선택 (AI 자동 선택됨)
+    target_dept = st.selectbox(
+        "문의할 부서 (AI 자동 선택됨)",
+        options=list(DEPARTMENT_EMAILS.keys()),
+        key="mail_dept",
+        help="AI가 자동으로 선택한 부서입니다. 필요시 변경 가능합니다."
+    )
+    
+    # 다듬어진 내용 표시 및 수정 가능
+    content = st.text_area(
+        "문의 내용 (AI가 공식 문서로 작성함)",
+        key="mail_body",
+        height=300,
+        help="AI가 자동으로 공식적인 형식으로 작성했습니다. 필요시 수정 가능합니다."
+    )
+    
+    col1, col2 = st.columns([1, 1])
+    
+    with col1:
+        if st.button("✨ AI로 다시 다듬기", use_container_width=True):
+            with st.spinner("AI가 내용을 다시 다듬고 있습니다..."):
+                refined = engine.refine_email_content(target_dept, user_query, content)
+                st.session_state.mail_body = refined
+                st.rerun()
+    
+    with col2:
+        if st.button("📤 이메일 발송", type="primary", use_container_width=True):
+            manager_email = DEPARTMENT_EMAILS.get(target_dept, ADMIN_EMAIL)
+            subject = f"[노티가드 문의] {user_query[:30]}..."
+            
+            with st.spinner(f"{target_dept} 담당자에게 메일 발송 중..."):
+                # 이메일 발송 시도
+                success = send_email(manager_email, subject, content)
+                time.sleep(0.5)
+            
+            # DB 저장
+            save_success = service.save_inquiry(employee_id, target_dept, user_query, content)
+            
+            if success:
+                st.success(f"✅ 전송 완료! {target_dept} 담당자에게 문의 내용이 전달되었습니다.")
+                st.info(f"수신자: {manager_email}")
+            else:
+                st.warning("⚠️ SMTP 설정이 없어 실제 메일 발송은 되지 않았습니다.")
+                st.info(f"""
+                    [전송 시뮬레이션]
+                    수신자: {manager_email}
+                    제목: {subject}
+                    
+                    *실제 발송을 위해서는 .env 파일의 SMTP 설정을 확인해주세요.*
+                """)
+            
+            if save_success:
+                st.success("📝 관리자 페이지에 문의가 접수되었습니다.")
+            
+            # 상태 정리
+            if "email_dialog_query" in st.session_state:
+                del st.session_state.email_dialog_query
+            time.sleep(2)
+            st.rerun()
+
 
 # 첫 세션이 없으면 생성
 if not st.session_state.chatbot_sessions:
@@ -227,6 +325,16 @@ with col_chat:
                 st.rerun()
         with col2:
             if st.button("📧 담당자에게 문의", use_container_width=True):
-                st.info("담당자 문의 기능은 준비 중입니다.")
+                # 가장 최근 사용자 질문 찾기
+                user_query = None
+                for msg in reversed(current_session["messages"]):
+                    if msg["role"] == "user":
+                        user_query = msg["content"]
+                        break
+                
+                if user_query:
+                    email_dialog(user_query)
+                else:
+                    st.warning("먼저 챗봇에게 질문을 해주세요.")
     else:
         st.warning("대화 세션을 선택하거나 새로 만들어주세요.")
