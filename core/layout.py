@@ -451,7 +451,7 @@ def render_chatbot_modal(user_id: str):
 
     # 하단 버튼
     st.divider()
-    col1, col2, col3 = st.columns([2, 2, 1])
+    col1, col2 = st.columns(2)
     with col1:
         if st.button("🔄 대화 초기화", use_container_width=True, key="modal_reset"):
             st.session_state.modal_chat_messages = []
@@ -462,11 +462,6 @@ def render_chatbot_modal(user_id: str):
             # 챗봇 페이지로 이동
             st.session_state._chatbot_modal_open = False
             st.switch_page("pages/chatbot.py")
-    with col3:
-        if st.button("닫기", use_container_width=True, key="modal_close"):
-            st.session_state._chatbot_modal_open = False
-            st.session_state["_chatbot_initial_query"] = None
-            st.rerun()
 
 
 def portal_sidebar(*, role: str, active_menu: str, on_menu_change):
