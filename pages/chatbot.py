@@ -85,34 +85,20 @@ else:
     user_id = st.session_state.get("employee_id", "guest")
 engine = ChatbotEngine(user_id=user_id)
 
-def load_sessions_from_db():
-    """DB에서 세션 목록 및 메시지 로드"""
-    db_sessions = service.get_user_chat_sessions(user_id)
-    
-    sessions = {}
-    for s in db_sessions:
-        sid = s["session_id"]
-        messages = service.get_chat_messages(sid)
-        sessions[sid] = {
-            "name": s["name"],
-            "messages": messages,
-            "timestamp": s["updated_at"]
-        }
-    
-    st.session_state.chatbot_sessions = sessions
-    
-    # 세션이 로드되었는데 현재 선택된 세션이 없다면 최신 세션 선택
-    if sessions and not st.session_state.current_session_id:
-        # DB에서 가져온 순서(최신순)대로 첫 번째
-        st.session_state.current_session_id = db_sessions[0]["session_id"]
+# 세션 카운터 초기화
+st.session_state.setdefault("session_counter", 0)
 
 # 대화 히스토리 관리 함수
+# 대화 히스토리 관리 함수
 def create_new_session(initial_messages=None):
-    """새 대화 세션 생성 (DB 저장)"""
+    """새 대화 세션 생성 (메모리)"""
+    st.session_state.session_counter += 1
+    session_id = f"session_{st.session_state.session_counter}"
+    
     messages = initial_messages if initial_messages else []
     
     # AI로 세션 이름 생성 (첫 사용자 메시지가 있는 경우)
-    session_name = "새 대화"
+    session_name = f"새 대화 {st.session_state.session_counter}"
     if messages:
         # 첫 번째 사용자 메시지 찾기
         first_user_msg = None
@@ -128,20 +114,7 @@ def create_new_session(initial_messages=None):
             except:
                 pass
     
-    # DB 생성
-    session_id = service.create_chat_session(user_id, session_name)
-    
-    # 초기 메시지 저장
-    for msg in messages:
-        service.add_chat_message(
-            session_id, 
-            msg["role"], 
-            msg["content"], 
-            msg.get("notice_refs"), 
-            msg.get("notice_details")
-        )
-    
-    # 세션 상태 업데이트
+    # 세션 상태 생성
     st.session_state.chatbot_sessions[session_id] = {
         "name": session_name,
         "messages": messages,
@@ -152,15 +125,16 @@ def create_new_session(initial_messages=None):
     return session_id
 
 def delete_session(session_id):
-    """대화 세션 삭제 (DB 삭제)"""
+    """대화 세션 삭제"""
     if session_id in st.session_state.chatbot_sessions:
-        service.delete_chat_session(session_id)
         del st.session_state.chatbot_sessions[session_id]
         
         # 현재 세션이 삭제된 경우
         if st.session_state.current_session_id == session_id:
+            # 남은 세션 중 가장 최근 것 선택
             remaining = list(st.session_state.chatbot_sessions.keys())
             if remaining:
+                # timestamp 기준 정렬 (최신순)
                 remaining.sort(key=lambda k: st.session_state.chatbot_sessions[k]["timestamp"], reverse=True)
                 st.session_state.current_session_id = remaining[0]
             else:
@@ -183,16 +157,12 @@ def update_session_name_if_needed(session_id):
         if first_user_msg:
             try:
                 new_name = engine.summarize_query(first_user_msg)
-                service.update_chat_session_name(session_id, new_name)  # DB 업데이트
+                # 상태 업데이트
                 session["name"] = new_name
             except:
                 pass
 
-# 페이지 접속 시 세션 로드 (세션 정보가 없거나 비어있을 때)
-# 단, 챗봇을 처음 켤 때 로딩
-if "chatbot_loaded" not in st.session_state:
-    load_sessions_from_db()
-    st.session_state.chatbot_loaded = True
+
 
 # -------------------------
 # 담당자 문의 다이얼로그
@@ -398,8 +368,7 @@ with col_chat:
                             "content": question
                         })
                         
-                        # DB 저장 (사용자)
-                        service.add_chat_message(st.session_state.current_session_id, "user", question)
+
                         
                         # 첫 메시지인 경우 세션 이름 업데이트
                         if len(current_session["messages"]) == 1:
@@ -419,14 +388,7 @@ with col_chat:
                                 "notice_details": notice_details
                             })
                             
-                            # DB 저장 (봇)
-                            service.add_chat_message(
-                                st.session_state.current_session_id, 
-                                "assistant", 
-                                response, 
-                                notice_refs, 
-                                notice_details
-                            )
+
                         
                         st.rerun()
             
@@ -442,8 +404,7 @@ with col_chat:
                 "content": prompt
             })
             
-            # DB 저장 (사용자)
-            service.add_chat_message(st.session_state.current_session_id, "user", prompt)
+
             
             # 첫 메시지인 경우 세션 이름 업데이트
             if len(current_session["messages"]) == 1:
@@ -463,14 +424,7 @@ with col_chat:
                     "notice_details": notice_details
                 })
                 
-                # DB 저장 (봇)
-                service.add_chat_message(
-                    st.session_state.current_session_id, 
-                    "assistant", 
-                    response, 
-                    notice_refs, 
-                    notice_details
-                )
+
             
             st.rerun()
         
