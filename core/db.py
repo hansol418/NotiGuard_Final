@@ -328,9 +328,74 @@ def _init_postgres():
         )
         cursor = conn.cursor()
 
-        # 스키마 실행
+        # ---------------------------------------
+        # 1. 스키마 및 테이블 생성 (구조)
+        # ---------------------------------------
+        
+        # 1-1) 기본 스키마 (파일)
         schema_sql = schema_path.read_text(encoding="utf-8")
         cursor.execute(schema_sql)
+
+        # 1-2) 챗봇 세션/메시지 및 추가 컬럼 (PostgreSQL)
+        # chat_logs (통계 로그용)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS chat_logs (
+                id SERIAL PRIMARY KEY,
+                user_id TEXT,
+                user_query TEXT NOT NULL,
+                bot_response TEXT NOT NULL,
+                response_type TEXT NOT NULL,
+                summary TEXT,
+                keywords TEXT,
+                notice_refs TEXT,
+                created_at BIGINT NOT NULL
+            )
+        """)
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_chat_logs_user ON chat_logs(user_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_chat_logs_created ON chat_logs(created_at)")
+
+        # chat_sessions (대화 세션)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS chat_sessions (
+                session_id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                name TEXT NOT NULL,
+                created_at BIGINT NOT NULL,
+                updated_at BIGINT NOT NULL
+            )
+        """)
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_chat_sessions_user ON chat_sessions(user_id)")
+
+        # chat_messages (메시지)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS chat_messages (
+                id SERIAL PRIMARY KEY,
+                session_id TEXT NOT NULL,
+                role TEXT NOT NULL,
+                content TEXT NOT NULL,
+                notice_refs TEXT,
+                notice_details TEXT,
+                created_at BIGINT NOT NULL,
+                CONSTRAINT fk_session
+                    FOREIGN KEY(session_id) 
+                    REFERENCES chat_sessions(session_id)
+                    ON DELETE CASCADE
+            )
+        """)
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_chat_messages_session ON chat_messages(session_id)")
+
+        # notices 테이블 컬럼 보완
+        cursor.execute("""
+            ALTER TABLE notices ADD COLUMN IF NOT EXISTS department TEXT DEFAULT '전체';
+            ALTER TABLE notices ADD COLUMN IF NOT EXISTS date TEXT;
+        """)
+
+        # 구조 변경 사항 즉시 커밋 (데이터 삽입 오류와 격리)
+        conn.commit()
+
+        # ---------------------------------------
+        # 2. 기초 데이터 삽입
+        # ---------------------------------------
 
         # 기본 관리자 계정 생성
         cursor.execute("""
@@ -354,72 +419,15 @@ def _init_postgres():
                 ON CONFLICT (employee_id) DO NOTHING
             """, (emp_id, name, dept, team))
 
-            # 그 다음 accounts 테이블에 계정 추가
+            # 그 다음 accounts 테이블에 계정 추가 (이미 존재하면 SKIP)
             cursor.execute("""
                 INSERT INTO accounts (login_id, password_hash, role, employee_id, created_at)
                 VALUES (%s, %s, 'EMPLOYEE', %s, 0)
                 ON CONFLICT (login_id) DO NOTHING
             """, (emp_id, hash_password("1234"), emp_id))
-
-        # ---------------------------------------
-        # 추가: 챗봇 세션/메시지 테이블 (PostgreSQL)
-        # ---------------------------------------
         
-        # 1) chat_logs (통계 로그용)
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS chat_logs (
-                id SERIAL PRIMARY KEY,
-                user_id TEXT,
-                user_query TEXT NOT NULL,
-                bot_response TEXT NOT NULL,
-                response_type TEXT NOT NULL,
-                summary TEXT,
-                keywords TEXT,
-                notice_refs TEXT,
-                created_at BIGINT NOT NULL
-            )
-        """)
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_chat_logs_user ON chat_logs(user_id)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_chat_logs_created ON chat_logs(created_at)")
-
-        # 2) chat_sessions (대화 세션)
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS chat_sessions (
-                session_id TEXT PRIMARY KEY,
-                user_id TEXT NOT NULL,
-                name TEXT NOT NULL,
-                created_at BIGINT NOT NULL,
-                updated_at BIGINT NOT NULL
-            )
-        """)
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_chat_sessions_user ON chat_sessions(user_id)")
-
-        # 3) chat_messages (메시지)
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS chat_messages (
-                id SERIAL PRIMARY KEY,
-                session_id TEXT NOT NULL,
-                role TEXT NOT NULL,
-                content TEXT NOT NULL,
-                notice_refs TEXT,
-                notice_details TEXT,
-                created_at BIGINT NOT NULL,
-                CONSTRAINT fk_session
-                    FOREIGN KEY(session_id) 
-                    REFERENCES chat_sessions(session_id)
-                    ON DELETE CASCADE
-            )
-        """)
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_chat_messages_session ON chat_messages(session_id)")
-
-        # 4) notices 테이블 컬럼 보완 (department, date)
-        # PostgreSQL에서는 ADD COLUMN IF NOT EXISTS 지원
-        cursor.execute("""
-            ALTER TABLE notices ADD COLUMN IF NOT EXISTS department TEXT DEFAULT '전체';
-            ALTER TABLE notices ADD COLUMN IF NOT EXISTS date TEXT;
-        """)
-
         conn.commit()
+
         cursor.close()
         conn.close()
 
