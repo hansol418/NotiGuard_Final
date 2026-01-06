@@ -689,5 +689,4 @@ def chatbot_modal():
 # 모달 상태 체크
 st.session_state.setdefault("_chatbot_modal_open", False)
 if st.session_state._chatbot_modal_open:
-    st.session_state._chatbot_modal_open = False
     chatbot_modal()
