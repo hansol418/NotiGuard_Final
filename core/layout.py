@@ -27,7 +27,13 @@ def apply_portal_theme(*, hide_pages_sidebar_nav: bool, hide_sidebar: bool, acti
         section[data-testid="stSidebar"] > div {{
             background: {PORTAL_PRIMARY};
             color: #fff;
-            padding-top: 18px;
+            padding-top: 5px;
+        }
+
+        section[data-testid="stSidebar"] h2 {
+            margin-top: 0 !important;
+            padding-top: 10px !important;
+            color: #fff !important;
         }}
 
         section[data-testid="stSidebar"] .stButton button {{
