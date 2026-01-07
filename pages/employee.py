@@ -89,10 +89,7 @@ def chatbot_modal():
     employee_id = st.session_state.get("employee_id", "guest")
     render_chatbot_modal(user_id=employee_id)
 
-def open_chatbot():
-    st.session_state._chatbot_modal_open = True
-
-render_floating_widget(img_path="assets/chatimg_r.png", on_click=open_chatbot)
+render_floating_widget(img_path="assets/chatimg_r.png", on_click=chatbot_modal)
 
 menu = st.session_state.emp_menu
 
@@ -671,8 +668,3 @@ elif menu == "게시판":
 else:
     st.info("준비 중인 메뉴입니다.")
 
-# -------------------------
-# 챗봇 모달 실행 (상태 기반)
-# -------------------------
-if st.session_state.get("_chatbot_modal_open"):
-    chatbot_modal()
