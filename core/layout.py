@@ -440,10 +440,20 @@ def render_chatbot_modal(user_id: str):
             with st.chat_message(msg["role"]):
                 st.markdown(msg["content"])
 
-    # 입력창
-    prompt = st.chat_input("예: 이번 주 안전교육 일정 알려줘", key="modal_chat_input")
+    # 입력창 (st.chat_input 대신 안정적인 form 사용)
+    with st.form(key="chatbot_form", clear_on_submit=True):
+        f_col1, f_col2 = st.columns([4, 1], gap="small")
+        with f_col1:
+            prompt = st.text_input(
+                "질문", 
+                placeholder="예: 이번 주 안전교육 일정 알려줘", 
+                label_visibility="collapsed",
+                key="modal_chat_text"
+            )
+        with f_col2:
+            submitted = st.form_submit_button("전송", type="primary", use_container_width=True)
 
-    if prompt:
+    if submitted and prompt:
         # 사용자 메시지 추가
         st.session_state.modal_chat_messages.append({
             "role": "user",
@@ -460,13 +470,10 @@ def render_chatbot_modal(user_id: str):
                 "role": "assistant",
                 "content": response
             })
+            
+        st.rerun()
 
-        # 새 메시지를 즉시 표시
-        with chat_container:
-            with st.chat_message("user"):
-                st.markdown(prompt)
-            with st.chat_message("assistant"):
-                st.markdown(response)
+
 
     # 하단 버튼
     st.divider()
