@@ -3,6 +3,7 @@ import streamlit as st
 from datetime import datetime
 import time
 import service
+import pandas as pd
 from core.layout import (
     apply_portal_theme,
     render_topbar,
@@ -677,5 +678,47 @@ elif menu == "문의관리":
                         st.rerun()
                 except Exception:
                     pass
+
+        # -------------------------
+        # 챗봇 질문 키워드 통계
+        # -------------------------
+        st.markdown("---")
+        st.subheader("📊 챗봇 질문 키워드 통계")
+        
+        stats = service.get_chatbot_keyword_stats()
+        
+        if not stats or not stats.get("전체"):
+            st.info("아직 수집된 챗봇 데이터가 없습니다. 직원이 챗봇에게 질문하면 데이터가 쌓입니다.")
+        else:
+            # 팀 목록 생성
+            team_options = sorted([k for k in stats.keys() if k != "전체"])
+            team_options.insert(0, "전체") # 전체를 맨 앞으로
+            
+            col_stat_1, col_stat_2 = st.columns([1, 3])
+            
+            with col_stat_1:
+                selected_team = st.selectbox("통계를 확인할 부서/팀", team_options)
+            
+            # 선택된 팀의 데이터
+            team_stat = stats.get(selected_team, {})
+            
+            if not team_stat:
+                st.warning(f"{selected_team}의 데이터가 없습니다.")
+            else:
+                with col_stat_2:
+                    st.caption(f"'{selected_team}'에서 주로 사용된 챗봇 키워드 Top 20")
+                    
+                    # 빈도수 기준 내림차순 정렬 (Top 20)
+                    sorted_items = sorted(team_stat.items(), key=lambda x: x[1], reverse=True)[:20]
+                    
+                    # DataFrame 생성
+                    df = pd.DataFrame(sorted_items, columns=["키워드", "빈도"])
+                    
+                    # 막대 그래프 (Chart)
+                    st.bar_chart(df.set_index("키워드"), color="#FF4B4B")
+                
+                # 상세 데이터 (접기)
+                with st.expander("📋 상세 데이터 보기"):
+                    st.dataframe(df, use_container_width=True, hide_index=True)
 
 

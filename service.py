@@ -750,3 +750,60 @@ def get_chat_messages(session_id: str) -> List[Dict]:
             "created_at": r["created_at"],
         })
     return result
+
+def get_chatbot_keyword_stats() -> Dict[str, Dict[str, int]]:
+    """
+    챗봇 로그에서 팀별 키워드 통계 추출
+    Returns:
+        {
+            "전체": {"연차": 10, "휴가": 5, ...},
+            "연구1팀": {"특허": 3, ...},
+            ...
+        }
+    """
+    import json
+    from collections import Counter
+    
+    with get_conn() as conn:
+        # user_id로 팀 정보 조인
+        # chat_logs가 비어있으면 결과 없음
+        try:
+            query = """
+                SELECT l.keywords, e.team, e.department
+                FROM chat_logs l
+                LEFT JOIN employees e ON l.user_id = e.employee_id
+                ORDER BY l.created_at DESC
+            """
+            cur = conn.execute(query)
+            rows = cur.fetchall()
+        except Exception as e:
+            # 테이블이 없거나 에러 발생 시 빈 결과 반환
+            print(f"키워드 통계 조회 실패: {e}")
+            return {}
+
+    stats = {"전체": Counter()}
+    
+    for r in rows:
+        keywords_json = r["keywords"]
+        team = r["team"] or "기타"
+        
+        try:
+            keywords = json.loads(keywords_json)
+            # 리스트가 아니면 패스
+            if not isinstance(keywords, list):
+                continue
+        except:
+            continue
+            
+        if not keywords:
+            continue
+            
+        if team not in stats:
+            stats[team] = Counter()
+            
+        for k in keywords:
+            stats["전체"][k] += 1
+            stats[team][k] += 1
+            
+    # Counter 객체를 dict로 변환하여 반환
+    return {k: dict(v) for k, v in stats.items()}
