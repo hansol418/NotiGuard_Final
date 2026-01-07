@@ -535,8 +535,8 @@ if menu == "홈":
     if not popup:
         st.success("현재 수신한 중요공지가 없습니다.")
 
-    time.sleep(5)
-    st.rerun()
+    # time.sleep(5)
+    # st.rerun()
 
 elif menu == "게시판":
 
