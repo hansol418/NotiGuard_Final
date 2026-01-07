@@ -3,6 +3,7 @@ import mimetypes
 from pathlib import Path
 from typing import Optional, List, Tuple
 import streamlit as st
+import extra_streamlit_components as stx
 
 
 PORTAL_PRIMARY = "#139fb0"
@@ -484,6 +485,9 @@ def render_chatbot_modal(user_id: str):
 
 
 def portal_sidebar(*, role: str, active_menu: str, on_menu_change):
+    # 로그아웃용 쿠키 매니저
+    cookie_manager = stx.CookieManager(key=f"sidebar_cookie_{role}")
+
     st.sidebar.markdown("## HS HYOSEONG")
 
     # 메뉴 구성 (챗봇, 문의관리 추가)
@@ -501,6 +505,8 @@ def portal_sidebar(*, role: str, active_menu: str, on_menu_change):
     st.sidebar.markdown("---")
 
     if st.sidebar.button("로그아웃", key=f"logout_{role}", use_container_width=True):
+        cookie_manager.delete("user_token")
+        
         st.session_state.logged_in = False
         st.session_state.role = None
         st.session_state.employee_id = None

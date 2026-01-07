@@ -858,3 +858,41 @@ def get_chatbot_keyword_stats() -> Dict[str, Dict[str, int]]:
             
     # Counter 객체를 dict로 변환하여 반환
     return {k: dict(v) for k, v in stats.items()}
+
+def get_account_info(login_id: str) -> Optional[Dict]:
+    """쿠키/토큰 기반 로그인을 위해 ID로 계정 정보 조회"""
+    with get_conn() as conn:
+        # accounts 조회
+        cur = conn.execute(
+            "SELECT * FROM accounts WHERE login_id = ?",
+            (login_id,)
+        )
+        acc = cur.fetchone()
+        
+        if not acc:
+            return None
+            
+        role = acc["role"]
+        
+        result = {
+            "loginId": acc["login_id"],
+            "role": role,
+            "employee": None
+        }
+        
+        if role == "EMPLOYEE" and acc["employee_id"]:
+            cur_emp = conn.execute(
+                "SELECT * FROM employees WHERE employee_id = ?",
+                (acc["employee_id"],)
+            )
+            emp = cur_emp.fetchone()
+            if emp:
+                result["employee"] = {
+                    "employeeId": emp["employee_id"],
+                    "name": emp["name"],
+                    "department": emp["department"],
+                    "team": emp["team"],
+                    "ignoreRemaining": int(emp["ignore_remaining"] or 0),
+                }
+        
+        return result

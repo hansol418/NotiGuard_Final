@@ -1,6 +1,8 @@
 import streamlit as st
 import service
 from core.layout import apply_portal_theme
+import extra_streamlit_components as stx
+import datetime
 
 st.set_page_config(page_title="Login", layout="wide", initial_sidebar_state="collapsed")
 
@@ -41,6 +43,8 @@ st.markdown(
 )
 
 # --- 중앙 모달: st.dialog 사용 ---
+cookie_manager = stx.CookieManager(key="login_cookie_manager")
+
 @st.dialog("로그인")
 def login_modal():
     st.caption("아이디/비밀번호로 로그인 (관리자: admin, 직원: HS001~HS003)")
@@ -94,9 +98,15 @@ def login_modal():
                     st.session_state.login_error = "로그인 정보가 올바르지 않습니다."
                     st.rerun()
                 else:
+                    expires = datetime.datetime.now() + datetime.timedelta(days=7)
+                    cookie_manager.set("user_token", info["loginId"], expires_at=expires)
+                    
                     st.session_state.logged_in = True
                     st.session_state.role = info["role"]
                     st.session_state.login_error = None
+                    
+                    import time
+                    time.sleep(0.5) # 쿠키 저장 대기
                     
                     if info["role"] == "ADMIN":
                         st.session_state.employee_id = None
