@@ -9,7 +9,7 @@ from core.layout import (
     info_card,
     app_links_card,
     portal_sidebar,
-    render_floating_widget,
+    remove_floating_widget,
 )
 
 st.set_page_config(page_title="Admin", layout="wide")
@@ -51,14 +51,8 @@ st.session_state.setdefault("selected_inquiry_id", None)
 st.session_state.setdefault("inquiry_filter_status", "전체")
 st.session_state.setdefault("inquiry_filter_dept", "전체")
 
-# 챗봇 모달
-@st.dialog("노티가드 AI 챗봇", width="large")
-def chatbot_modal():
-    from core.layout import render_chatbot_modal
-    render_chatbot_modal(user_id="admin")
-
 apply_portal_theme(hide_pages_sidebar_nav=True, hide_sidebar=False, active_menu=st.session_state.admin_menu)
-render_floating_widget(img_path="assets/chatimg_r.png", on_click=chatbot_modal)
+remove_floating_widget()
 
 DEPARTMENTS = [
     "미래전략실",
