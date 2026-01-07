@@ -783,6 +783,23 @@ def get_chatbot_keyword_stats() -> Dict[str, Dict[str, int]]:
 
     stats = {"전체": Counter()}
     
+    # 불용어 정의 (통계 후처리용)
+    STOPWORDS = {
+        '은', '는', '이', '가', '을', '를', '에', '의', '와', '과', '으로', '로', '에서', '부터', '까지',
+        '있다', '없다', '이다', '아니다', '하다', '되다', '않다', '같다', '싶다',
+        '알려줘', '알려주세요', '알려', '주세요', '해주세요', '해줘', '보여줘', '보여주세요',
+        '무엇', '무엇인가요', '어디', '어디서', '언제', '누구', '어떻게', '왜', 
+        '궁금해', '궁금해요', '질문', '문의', '사항', '관련', '대한', '대해', '대하여',
+        '안녕', '안녕하세요', '반가워', '반갑습니다', '감사', '고마워',
+        '공지', '사항', '확인', '방법', '좀', '수', '할', '한', '데', '건', '것',
+        '저', '나', '너', '우리', '그', '이', '저', '요', '네', '아니요',
+        '이번', '저번', '다음', '오늘', '내일', '어제', '지금', '현재',
+        '있어', '있나', '있니', '있나요', '없어', '없나', '없니', '없나요',
+        '??', '?!', '??', '..', '...'
+    }
+    
+    import re
+
     for r in rows:
         keywords_json = r["keywords"]
         team = r["team"] or "기타"
@@ -802,8 +819,24 @@ def get_chatbot_keyword_stats() -> Dict[str, Dict[str, int]]:
             stats[team] = Counter()
             
         for k in keywords:
-            stats["전체"][k] += 1
-            stats[team][k] += 1
+            k = str(k).strip()
+            
+            # 1차 필터: 불용어면 패스
+            if k in STOPWORDS:
+                continue
+
+            # 2차 필터: 특수문자 제거 후 확인
+            # '있나요?' -> '있나요'
+            k_clean = re.sub(r'[^가-힣a-zA-Z0-9\s]', '', k)
+            
+            if len(k_clean) < 2:
+                continue
+                
+            if k_clean in STOPWORDS:
+                continue
+                
+            stats["전체"][k_clean] += 1
+            stats[team][k_clean] += 1
             
     # Counter 객체를 dict로 변환하여 반환
     return {k: dict(v) for k, v in stats.items()}
