@@ -795,9 +795,13 @@ def get_chatbot_keyword_stats() -> Dict[str, Dict[str, int]]:
         '저', '나', '너', '우리', '그', '이', '저', '요', '네', '아니요',
         '이번', '저번', '다음', '오늘', '내일', '어제', '지금', '현재',
         '있어', '있나', '있니', '있나요', '없어', '없나', '없니', '없나요',
-        '??', '?!', '??', '..', '...'
+        '??', '?!', '??', '..', '...',
+        '공지를', '공지사항', '최근', '뭐가', '뭔가', '알려줄래', '어떤', '어떤게'
     }
     
+    # 제거할 조사 목록
+    JOSAS = ['은', '는', '이', '가', '을', '를', '에', '의', '와', '과', '으로', '로', '에서', '도', '만']
+
     import re
 
     for r in rows:
@@ -820,23 +824,36 @@ def get_chatbot_keyword_stats() -> Dict[str, Dict[str, int]]:
             
         for k in keywords:
             k = str(k).strip()
-            
-            # 1차 필터: 불용어면 패스
-            if k in STOPWORDS:
+            if not k:
                 continue
-
-            # 2차 필터: 특수문자 제거 후 확인
-            # '있나요?' -> '있나요'
-            k_clean = re.sub(r'[^가-힣a-zA-Z0-9\s]', '', k)
             
+            # 1. 특수문자 제거
+            k_clean = re.sub(r'[^가-힣a-zA-Z0-9]', '', k)
+            
+            # 2. 길이 체크 및 1차 불용어 체크
             if len(k_clean) < 2:
                 continue
                 
-            if k_clean in STOPWORDS:
+            if k in STOPWORDS or k_clean in STOPWORDS:
+                continue
+            
+            # 3. 조사(Josa) 제거 로직 (Simple Stemming)
+            # '자동차를' -> '자동차', '학교에서' -> '학교'
+            cand = k_clean
+            for josa in JOSAS:
+                if cand.endswith(josa):
+                    # 조사를 제거했을 때 2글자 이상 남아야 함
+                    temp = cand[:-len(josa)]
+                    if len(temp) >= 2:
+                        cand = temp
+                        break # 하나만 제거하고 중단 (중복 조사 처리 안함)
+            
+            # 조사 제거 후 다시 불용어 체크
+            if cand in STOPWORDS:
                 continue
                 
-            stats["전체"][k_clean] += 1
-            stats[team][k_clean] += 1
+            stats["전체"][cand] += 1
+            stats[team][cand] += 1
             
     # Counter 객체를 dict로 변환하여 반환
     return {k: dict(v) for k, v in stats.items()}
