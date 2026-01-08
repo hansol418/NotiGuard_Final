@@ -667,107 +667,104 @@ def popup_banner_dialog(payload: dict):
             st.session_state._popup_view = "chatbot"
             st.rerun()
 
-    # 버튼 색상 적용 - 매우 공격적인 방식
-    st.markdown(
-        f"""
-        <style>
-        /* 버튼 key 기반 타겟팅 */
-        [data-testid*="popup_confirm_{popup_id}"] button,
-        button[data-testid*="popup_confirm_{popup_id}"] {{
-            background: #dc3545 !important;
-            border: 2px solid #dc3545 !important;
-            color: white !important;
-        }}
-        
-        [data-testid*="popup_later_{popup_id}"] button,
-        button[data-testid*="popup_later_{popup_id}"] {{
-            background: #0d6efd !important;
-            border: 2px solid #0d6efd !important;
-            color: white !important;
-        }}
-        
-        [data-testid*="popup_summary_{popup_id}"] button,
-        button[data-testid*="popup_summary_{popup_id}"] {{
-            background: #198754 !important;
-            border: 2px solid #198754 !important;
-            color: white !important;
-        }}
-        
-        [data-testid*="popup_chatbot_{popup_id}"] button,
-        button[data-testid*="popup_chatbot_{popup_id}"] {{
-            background: #ffc107 !important;
-            border: 2px solid #ffc107 !important;
-            color: #000 !important;
-        }}
-        
-        /* 버튼 내부 p 태그 색상 */
-        [data-testid*="popup_confirm_{popup_id}"] p,
-        [data-testid*="popup_later_{popup_id}"] p,
-        [data-testid*="popup_summary_{popup_id}"] p {{
-            color: white !important;
-        }}
-        
-        [data-testid*="popup_chatbot_{popup_id}"] p {{
-            color: #000 !important;
-        }}
-        </style>
-        """,
-        unsafe_allow_html=True
-    )
-    
-    # JavaScript로 직접 강제 적용
+    # 버튼 색상 강제 적용
     components.html(
-        f"""
+        """
         <script>
-        (function() {{
+        (function() {
             const doc = window.parent.document;
             
-            function applyColors() {{
-                // Key 기반으로 버튼 찾기
-                const confirmBtn = doc.querySelector('[data-testid*="popup_confirm_{popup_id}"]')?.querySelector('button') || 
-                                  doc.querySelector('button[key*="popup_confirm_{popup_id}"]');
-                const laterBtn = doc.querySelector('[data-testid*="popup_later_{popup_id}"]')?.querySelector('button') || 
-                                doc.querySelector('button[key*="popup_later_{popup_id}"]');
-                const summaryBtn = doc.querySelector('[data-testid*="popup_summary_{popup_id}"]')?.querySelector('button') || 
-                                  doc.querySelector('button[key*="popup_summary_{popup_id}"]');
-                const chatbotBtn = doc.querySelector('[data-testid*="popup_chatbot_{popup_id}"]')?.querySelector('button') || 
-                                  doc.querySelector('button[key*="popup_chatbot_{popup_id}"]');
+            function paintButtons() {
+                const allButtons = doc.querySelectorAll('button');
                 
-                if (confirmBtn) {{
-                    confirmBtn.style.cssText = 'background: #dc3545 !important; border: 2px solid #dc3545 !important; color: white !important;';
-                    const p = confirmBtn.querySelector('p');
-                    if (p) p.style.color = 'white';
-                }}
-                
-                if (laterBtn) {{
-                    laterBtn.style.cssText = 'background: #0d6efd !important; border: 2px solid #0d6efd !important; color: white !important;';
-                    const p = laterBtn.querySelector('p');
-                    if (p) p.style.color = 'white';
-                }}
-                
-                if (summaryBtn) {{
-                    summaryBtn.style.cssText = 'background: #198754 !important; border: 2px solid #198754 !important; color: white !important;';
-                    const p = summaryBtn.querySelector('p');
-                    if (p) p.style.color = 'white';
-                }}
-                
-                if (chatbotBtn) {{
-                    chatbotBtn.style.cssText = 'background: #ffc107 !important; border: 2px solid #ffc107 !important; color: #000 !important;';
-                    const p = chatbotBtn.querySelector('p');
-                    if (p) p.style.color = '#000';
-                }}
-            }}
+                allButtons.forEach(function(btn) {
+                    const txt = btn.innerText || btn.textContent || '';
+                    
+                    // 확인함 - 빨강
+                    if (txt.indexOf('1. 확인함') !== -1) {
+                        btn.style.setProperty('background-color', '#dc3545', 'important');
+                        btn.style.setProperty('background', '#dc3545', 'important');
+                        btn.style.setProperty('border-color', '#dc3545', 'important');
+                        btn.style.setProperty('color', 'white', 'important');
+                        btn.style.backgroundColor = '#dc3545';
+                        btn.style.borderColor = '#dc3545';
+                        btn.style.color = 'white';
+                        
+                        var p = btn.querySelector('p');
+                        if (p) {
+                            p.style.setProperty('color', 'white', 'important');
+                            p.style.color = 'white';
+                        }
+                    }
+                    // 나중에 확인 - 파랑
+                    else if (txt.indexOf('2. 나중에 확인') !== -1) {
+                        btn.style.setProperty('background-color', '#0d6efd', 'important');
+                        btn.style.setProperty('background', '#0d6efd', 'important');
+                        btn.style.setProperty('border-color', '#0d6efd', 'important');
+                        btn.style.setProperty('color', 'white', 'important');
+                        btn.style.backgroundColor = '#0d6efd';
+                        btn.style.borderColor = '#0d6efd';
+                        btn.style.color = 'white';
+                        
+                        var p = btn.querySelector('p');
+                        if (p) {
+                            p.style.setProperty('color', 'white', 'important');
+                            p.style.color = 'white';
+                        }
+                    }
+                    // AI 요약 보기 - 초록
+                    else if (txt.indexOf('3. AI 요약 보기') !== -1) {
+                        btn.style.setProperty('background-color', '#198754', 'important');
+                        btn.style.setProperty('background', '#198754', 'important');
+                        btn.style.setProperty('border-color', '#198754', 'important');
+                        btn.style.setProperty('color', 'white', 'important');
+                        btn.style.backgroundColor = '#198754';
+                        btn.style.borderColor = '#198754';
+                        btn.style.color = 'white';
+                        
+                        var p = btn.querySelector('p');
+                        if (p) {
+                            p.style.setProperty('color', 'white', 'important');
+                            p.style.color = 'white';
+                        }
+                    }
+                    // AI 챗봇에게 질문 - 노랑
+                    else if (txt.indexOf('4. AI 챗봇에게 질문') !== -1) {
+                        btn.style.setProperty('background-color', '#ffc107', 'important');
+                        btn.style.setProperty('background', '#ffc107', 'important');
+                        btn.style.setProperty('border-color', '#ffc107', 'important');
+                        btn.style.setProperty('color', '#000', 'important');
+                        btn.style.backgroundColor = '#ffc107';
+                        btn.style.borderColor = '#ffc107';
+                        btn.style.color = '#000';
+                        
+                        var p = btn.querySelector('p');
+                        if (p) {
+                            p.style.setProperty('color', '#000', 'important');
+                            p.style.color = '#000';
+                        }
+                    }
+                });
+            }
             
-            // 즉시 실행
-            setTimeout(applyColors, 10);
-            setTimeout(applyColors, 100);
-            setTimeout(applyColors, 300);
-            setTimeout(applyColors, 500);
+            // 여러 번 실행
+            paintButtons();
+            setTimeout(paintButtons, 50);
+            setTimeout(paintButtons, 100);
+            setTimeout(paintButtons, 200);
+            setTimeout(paintButtons, 500);
+            setTimeout(paintButtons, 1000);
             
-            // 주기적 실행
-            const interval = setInterval(applyColors, 200);
-            setTimeout(() => clearInterval(interval), 5000);
-        }})();
+            // 5초간 계속 실행
+            var count = 0;
+            var timer = setInterval(function() {
+                paintButtons();
+                count++;
+                if (count > 25) {
+                    clearInterval(timer);
+                }
+            }, 200);
+        })();
         </script>
         """,
         height=0
