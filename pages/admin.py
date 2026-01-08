@@ -145,14 +145,14 @@ def target_dialog():
             key="popup_expected_send_time",
         )
 
-    left, right = st.columns([1, 1], gap="large")
+    left, right = st.columns([1, 1], gap="medium")
 
     # -------------------------
     # 본부 선택 (value= 미사용 / session_state 키 단일화)
     # -------------------------
     with left:
         st.markdown("### 본부 선택")
-        dept_box = st.container(border=True, height=420)
+        dept_box = st.container(border=True, height=300)
         with dept_box:
             for dept in DEPARTMENTS:
                 dept_key = f"dlg_dept_{dept}"
@@ -178,7 +178,7 @@ def target_dialog():
     # -------------------------
     with right:
         st.markdown("### 팀 선택")
-        team_box = st.container(border=True, height=420)
+        team_box = st.container(border=True, height=300)
         with team_box:
             for dept, teams in TEAMS_BY_DEPT.items():
                 st.markdown(f"**{dept}**")
