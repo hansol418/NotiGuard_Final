@@ -416,18 +416,125 @@ def popup_banner_dialog(payload: dict):
         
         # 하단 버튼
         st.divider()
-        col1, col2 = st.columns(2)
+        col1, col2, col3 = st.columns(3)
         with col1:
             if st.button("⬅ 공지로 돌아가기", use_container_width=True, key="popup_chat_back"):
                 st.session_state._popup_view = "content"
                 st.session_state._popup_chat_messages = []
                 st.rerun()
         with col2:
+            if st.button("📧 담당자 문의", use_container_width=True, key="popup_chat_email"):
+                st.session_state._popup_view = "email"
+                st.rerun()
+        with col3:
             if st.button("✅ 확인 완료", type="primary", use_container_width=True, key="popup_chat_confirm"):
-                service.confirm_popup_action(emp_id, popup_id)
-                st.session_state._popup_chat_messages = []
+                st.session_state._popup_confirm_pending = True
+                st.session_state._popup_confirm_pending_id = popup_id
+                st.rerun()
+        
+        st.stop()
+    
+    # ========== 담당자 문의 뷰 ==========
+    if st.session_state._popup_view == "email":
+        from core.chatbot_engine import ChatbotEngine
+        from core.config import DEPARTMENT_EMAILS, ADMIN_EMAIL
+        from core.email_utils import send_email
+        import time
+        
+        st.markdown("#### 📧 담당자에게 문의하기")
+        st.caption(f"공지: {title}")
+        
+        # 마지막 유저 질문 찾기 (챗봇 대화에서)
+        last_query = ""
+        for msg in reversed(st.session_state.get("_popup_chat_messages", [])):
+            if msg["role"] == "user":
+                last_query = msg["content"]
+                break
+        
+        # 첫 진입시 AI 작성
+        if "_popup_email_draft" not in st.session_state:
+            engine = ChatbotEngine(user_id=emp_id)
+            emp_info = st.session_state.get("employee_info") or {}
+            dept = emp_info.get("department", "")
+            name = emp_info.get("name", "")
+            user_info_str = f"\n\n[작성자 정보]\n소속: {dept}\n이름: {name}" if dept else ""
+            
+            # 질문이 없으면 공지 내용으로
+            query_for_email = last_query if last_query else f"{title}에 대한 문의"
+            
+            # 부서 감지
+            detected = engine.detect_target_department(query_for_email)
+            st.session_state._popup_mail_dept = detected if detected in DEPARTMENT_EMAILS else list(DEPARTMENT_EMAILS.keys())[0]
+            
+            with st.spinner("AI가 문의 내용을 작성 중입니다..."):
+                initial_draft = f"질문 내용: {query_for_email}{user_info_str}\n\n[추가 문의 사항을 작성해주세요]"
+                refined = engine.refine_email_content(st.session_state._popup_mail_dept, query_for_email, initial_draft)
+                st.session_state._popup_email_draft = refined
+        
+        # UI
+        if last_query:
+            st.info(f"원본 질문: {last_query}")
+        else:
+            st.info(f"공지 '{title}'에 대한 문의")
+        
+        target_dept = st.selectbox(
+            "문의할 부서 (AI 자동 선택됨)",
+            options=list(DEPARTMENT_EMAILS.keys()),
+            key="_popup_mail_dept",
+            help="AI가 자동으로 선택한 부서입니다. 필요시 변경 가능합니다."
+        )
+        
+        content_text = st.text_area(
+            "문의 내용 (AI가 공식 문서로 작성함)",
+            key="_popup_email_draft",
+            height=250,
+            help="AI가 자동으로 공식적인 형식으로 작성했습니다. 필요시 수정 가능합니다."
+        )
+        
+        st.divider()
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            if st.button("⬅ 챗봇으로", use_container_width=True, key="_popup_email_back"):
+                del st.session_state._popup_email_draft
+                if "_popup_mail_dept" in st.session_state:
+                    del st.session_state._popup_mail_dept
+                st.session_state._popup_view = "chatbot"
+                st.rerun()
+        
+        with c2:
+            if st.button("✨ AI 재작성", use_container_width=True, key="_popup_email_refine"):
+                engine = ChatbotEngine(user_id=emp_id)
+                query_for_email = last_query if last_query else f"{title}에 대한 문의"
+                with st.spinner("AI가 내용을 다시 다듬고 있습니다..."):
+                    refined = engine.refine_email_content(target_dept, query_for_email, content_text)
+                    st.session_state._popup_email_draft = refined
+                    st.rerun()
+        
+        with c3:
+            if st.button("📤 메일 발송", type="primary", use_container_width=True, key="_popup_email_send"):
+                manager_email = DEPARTMENT_EMAILS.get(target_dept, ADMIN_EMAIL)
+                query_for_subject = last_query if last_query else title
+                subject = f"[노티가드 문의] {query_for_subject[:20]}..."
+                
+                with st.spinner(f"{target_dept} 담당자에게 발송 중..."):
+                    success = send_email(manager_email, subject, content_text)
+                    time.sleep(0.5)
+                
+                # DB 저장
+                query_for_db = last_query if last_query else f"{title}에 대한 문의"
+                service.save_inquiry(emp_id, target_dept, query_for_db, content_text)
+                
+                if success:
+                    st.success(f"✅ 전송 완료! ({manager_email})")
+                else:
+                    st.warning("⚠️ 발송 실패 (SMTP 설정을 확인하세요)")
+                
+                time.sleep(2)
+                del st.session_state._popup_email_draft
+                if "_popup_mail_dept" in st.session_state:
+                    del st.session_state._popup_mail_dept
                 st.session_state._popup_view = "content"
-                close_popup_now_hard()
+                st.rerun()
         
         st.stop()
     
@@ -438,6 +545,13 @@ def popup_banner_dialog(payload: dict):
         with c1:
             if st.button("네", type="primary", use_container_width=True, key=f"popup_confirm_yes_{popup_id}"):
                 service.confirm_popup_action(emp_id, popup_id)
+                # 챗봇/이메일 상태 초기화
+                st.session_state._popup_chat_messages = []
+                st.session_state._popup_view = "content"
+                if "_popup_email_draft" in st.session_state:
+                    del st.session_state._popup_email_draft
+                if "_popup_mail_dept" in st.session_state:
+                    del st.session_state._popup_mail_dept
                 close_popup_now_hard()
         with c2:
             if st.button("아니오", use_container_width=True, key=f"popup_confirm_no_{popup_id}"):
