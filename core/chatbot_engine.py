@@ -72,12 +72,27 @@ class ChatbotEngine:
             import service
             keyword_stats = service.get_chatbot_keyword_stats()
             if keyword_stats:
+                stats_lines = []
+                
                 # 전체 키워드 TOP 10 추출
                 total_keywords = keyword_stats.get("전체", {})
                 if total_keywords:
                     top_keywords = sorted(total_keywords.items(), key=lambda x: x[1], reverse=True)[:10]
                     keyword_list = [f"{kw} ({count}회)" for kw, count in top_keywords]
-                    keyword_stats_text = f"\n\n**[관리자 전용] 직원들이 최근 자주 질문한 키워드 TOP 10:**\n" + ", ".join(keyword_list)
+                    stats_lines.append("**전체 직원 TOP 10:**")
+                    stats_lines.append(", ".join(keyword_list))
+                
+                # 부서별 키워드 TOP 5 추출
+                stats_lines.append("\n**부서별 TOP 5:**")
+                for dept_name, dept_keywords in keyword_stats.items():
+                    if dept_name == "전체":
+                        continue
+                    if dept_keywords:
+                        top_dept_keywords = sorted(dept_keywords.items(), key=lambda x: x[1], reverse=True)[:5]
+                        dept_keyword_list = [f"{kw} ({count}회)" for kw, count in top_dept_keywords]
+                        stats_lines.append(f"• {dept_name}: {', '.join(dept_keyword_list)}")
+                
+                keyword_stats_text = "\n\n**[관리자 전용] 직원들이 최근 자주 질문한 키워드 통계:**\n" + "\n".join(stats_lines)
 
         # 4. 프롬프트 생성 (관리자면 키워드 통계 포함)
         prompt = self._build_prompt(user_query, context, keyword_stats_text if is_admin else "")
