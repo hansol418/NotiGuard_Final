@@ -380,54 +380,62 @@ def popup_banner_dialog(payload: dict):
                 st.rerun()
         st.stop()
 
-    # 본문 먼저 표시
-    BODY_H = 200
-    with st.container(height=BODY_H, border=False):
-        # 텍스트 렌더
-        safe_html = _escape(content).replace("\n", "<br>")
-        st.markdown(f'<div class="hs-content">{safe_html}</div>', unsafe_allow_html=True)
-
-    # 이미지는 본문 아래에 표시
+    # 이미지는 본문 판단을 위해 먼저 확인
     img_url = payload.get("imageUrl") or payload.get("image_url")
     img_path = payload.get("imagePath") or payload.get("image_path")
     img_b64  = payload.get("imageBase64") or payload.get("image_base64")
 
     has_image = bool(img_url or img_path or img_b64)
+    
+    # 본문 텍스트 준비
+    safe_html = _escape(content).replace("\n", "<br>")
+
+    # 레이아웃 분기: 이미지가 있으면 좌우 배치, 없으면 전체 배치
+    CONTENT_HEIGHT = 400  # 한 화면에 적절히 들어오도록 높이 설정
 
     if has_image:
-        st.markdown('<div style="margin: 12px 0;"></div>', unsafe_allow_html=True)
-
-        try:
-            if img_url:
-                # R2 URL 이미지 - 다운로드해서 표시
-                from core.storage import get_file
-
+        # 1:1 비율로 텍스트/이미지 배치
+        c_text, c_img = st.columns([1, 1], gap="medium")
+        
+        # [좌측] 텍스트
+        with c_text:
+            with st.container(height=CONTENT_HEIGHT, border=False):
+                st.markdown(f'<div class="hs-content">{safe_html}</div>', unsafe_allow_html=True)
+        
+        # [우측] 이미지
+        with c_img:
+            # 이미지 컨테이너 (스크롤 가능하게 하여 너무 긴 이미지 대응)
+            with st.container(height=CONTENT_HEIGHT, border=False):
                 try:
-                    # R2에서 파일 다운로드
-                    img_bytes = get_file(img_url)
-                    st.image(img_bytes, use_container_width=True)
-                except Exception as download_error:
-                    # 다운로드 실패 시 직접 URL 시도
-                    st.warning(f"이미지 로드 중 오류: {str(download_error)}")
-                    st.caption(f"이미지 URL: {img_url}")
+                    if img_url:
+                        from core.storage import get_file
+                        try:
+                            img_bytes = get_file(img_url)
+                            st.image(img_bytes, use_container_width=True)
+                        except Exception as download_error:
+                            st.warning(f"이미지 로드 중 오류: {str(download_error)}")
+                            st.caption(f"이미지 URL: {img_url}")
 
-            elif img_path:
-                # 로컬 파일 이미지
-                with open(img_path, "rb") as f:
-                    img_bytes = f.read()
-                st.image(img_bytes, use_container_width=True)
+                    elif img_path:
+                        with open(img_path, "rb") as f:
+                            img_bytes = f.read()
+                        st.image(img_bytes, use_container_width=True)
 
-            elif img_b64:
-                # base64 이미지 (data:image/png;base64,... 형태도 처리)
-                if "," in img_b64:
-                    img_b64 = img_b64.split(",", 1)[1]
-                img_bytes = base64.b64decode(img_b64)
-                st.image(img_bytes, use_container_width=True)
+                    elif img_b64:
+                        if "," in img_b64:
+                            img_b64 = img_b64.split(",", 1)[1]
+                        img_bytes = base64.b64decode(img_b64)
+                        st.image(img_bytes, use_container_width=True)
 
-        except FileNotFoundError as e:
-            st.warning(f"첨부 이미지를 찾을 수 없습니다: {str(e)}")
-        except Exception as e:
-            st.warning(f"첨부 이미지 표시 중 오류가 발생했습니다: {str(e)}")
+                except FileNotFoundError as e:
+                    st.warning(f"첨부 이미지를 찾을 수 없습니다: {str(e)}")
+                except Exception as e:
+                    st.warning(f"첨부 이미지 표시 중 오류가 발생했습니다: {str(e)}")
+
+    else:
+        # 이미지가 없으면 텍스트만 넓게 표시
+        with st.container(height=CONTENT_HEIGHT, border=False):
+            st.markdown(f'<div class="hs-content">{safe_html}</div>', unsafe_allow_html=True)
 
 
     st.markdown('<div class="hs-line"></div>', unsafe_allow_html=True)
