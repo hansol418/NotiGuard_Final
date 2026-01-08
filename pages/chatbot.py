@@ -419,6 +419,52 @@ with col_chat:
             
             st.markdown("")  # 약간의 여백
         
+        # ----------------------------------------
+        # 0. 팝업에서 넘어온 초기 질문 자동 처리
+        # ----------------------------------------
+        initial_q = st.session_state.get("_chatbot_initial_query")
+        if initial_q:
+            # 1회성 처리를 위해 즉시 지움
+            st.session_state["_chatbot_initial_query"] = None
+            
+            # 사용자 메시지로 추가
+            current_session["messages"].append({
+                "role": "user",
+                "content": initial_q
+            })
+            service.add_chat_message(st.session_state.current_session_id, "user", initial_q)
+            
+            # 첫 메시지 등 세션명 업데이트
+            if len(current_session["messages"]) == 1:
+                update_session_name_if_needed(st.session_state.current_session_id)
+
+            # 응답 생성
+            with st.spinner("답변 생성 중..."):
+                result = engine.ask(initial_q)
+                response = result["response"]
+                notice_refs = result.get("notice_refs", [])
+                notice_details = result.get("notice_details", [])
+                
+                current_session["messages"].append({
+                    "role": "assistant",
+                    "content": response,
+                    "notice_refs": notice_refs,
+                    "notice_details": notice_details
+                })
+                service.add_chat_message(st.session_state.current_session_id, "assistant", response, notice_refs, notice_details)
+
+            # 처리가 끝났으므로 다른 동작 없이 UI 갱신을 위해 리런
+            st.rerun()
+
+        # ----------------------------------------
+        # 1. 상단: 팝업 복귀 버튼 (팝업에서 온 경우만)
+        # ----------------------------------------
+        if st.session_state.get("_last_popup_id"):
+            if st.button("⬅ 팝업으로 돌아가기", key="back_to_popup"):
+                 # 팝업을 다시 열기 위한 플래그 설정은 employee.py 진입 시 처리하거나 상태 유지
+                 st.session_state._popup_modal_open = True
+                 st.switch_page("pages/employee.py")
+
         # 채팅 입력창 (상단에 위치)
         prompt = st.chat_input("메시지를 입력하세요...", key="chatbot_input")
         

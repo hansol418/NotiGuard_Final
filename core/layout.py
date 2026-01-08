@@ -397,6 +397,11 @@ def render_chatbot_modal(user_id: str):
             div[role="dialog"].chatbot-modal [data-testid="stChatInput"] {
               max-width: 100% !important;
             }
+            
+            /* 챗봇 모달은 닫기 버튼(X) 보이기 - 팝업에서 숨긴걸 다시 복구 */
+            div[role="dialog"].chatbot-modal button[aria-label="Close"] {
+              display: block !important;
+            }
           `;
           doc.head.appendChild(style);
         })();
