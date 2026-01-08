@@ -638,13 +638,10 @@ def popup_banner_dialog(payload: dict):
         with st.container(height=CONTENT_HEIGHT, border=False):
             st.markdown(f'<div class="hs-content">{safe_html}</div>', unsafe_allow_html=True)
 
+    # 구분선 제거하여 공백 절약
+    # st.markdown('<div class="hs-line"></div>', unsafe_allow_html=True)
 
-    st.markdown('<div class="hs-line"></div>', unsafe_allow_html=True)
-
-    # 버튼들을 2x2 그리드로 배치하여 한 화면에 잘 보이게 함
-    # 1행: 확인함 / 나중에 확인
-    # 2행: 요약 보기 / 챗봇으로 바로가기
-    
+    # 버튼들을 2x2 그리드로 배치 - 간격 최소화
     r1_c1, r1_c2 = st.columns(2, gap="small")
     r2_c1, r2_c2 = st.columns(2, gap="small")
 
