@@ -667,83 +667,101 @@ def popup_banner_dialog(payload: dict):
             st.session_state._popup_view = "chatbot"
             st.rerun()
 
-    # 버튼 색상 적용 스크립트 (더욱 강력한 적용)
-    components.html(
-        """
+    # 버튼 색상 적용 (CSS 직접 주입 방식)
+    st.markdown(
+        f"""
+        <style>
+        /* 팝업 버튼 색상 - ID {popup_id} */
+        button[kind="secondary"]:has(p:first-child) {{
+            transition: all 0.2s ease !important;
+        }}
+        
+        /* 확인함 버튼 - 빨강 */
+        button:has(p:first-child):has-text("1. 확인함"),
+        button p:first-child:has-text("1. 확인함")::parent {{
+            background-color: #dc3545 !important;
+            border-color: #dc3545 !important;
+            color: white !important;
+        }}
+        
+        /* 나중에 확인 버튼 - 파랑 */
+        button:has(p:first-child:contains("2. 나중에 확인")) {{
+            background-color: #0d6efd !important;
+            border-color: #0d6efd !important;
+            color: white !important;
+        }}
+        
+        /* AI 요약 보기 버튼 - 초록 */
+        button:has(p:first-child:contains("3. AI 요약 보기")) {{
+            background-color: #198754 !important;
+            border-color: #198754 !important;
+            color: white !important;
+        }}
+        
+        /* AI 챗봇에게 질문 버튼 - 노랑 */
+        button:has(p:first-child:contains("4. AI 챗봇에게 질문")) {{
+            background-color: #ffc107 !important;
+            border-color: #ffc107 !important;
+            color: #000 !important;
+        }}
+        
+        /* 텍스트 색상 강제 */
+        button p {{
+            margin: 0 !important;
+        }}
+        </style>
+        
         <script>
-        (function() {
+        // JavaScript 폴백 - CSS가 작동하지 않을 경우를 대비
+        (function() {{
             const doc = window.parent.document;
             
-            function applyStyles() {
+            function forceButtonColors() {{
                 const buttons = doc.querySelectorAll('button');
-                let applied = false;
                 
-                buttons.forEach(btn => {
+                buttons.forEach(btn => {{
                     const text = (btn.textContent || "").trim();
                     
-                    if (text.includes("1. 확인함")) {
-                        btn.style.setProperty('background-color', '#d9534f', 'important');
-                        btn.style.setProperty('border-color', '#d9534f', 'important');
-                        btn.style.setProperty('color', 'white', 'important');
+                    if (text.includes("1. 확인함")) {{
+                        btn.style.backgroundColor = "#dc3545";
+                        btn.style.borderColor = "#dc3545";
+                        btn.style.color = "white";
                         const p = btn.querySelector('p');
-                        if (p) {
-                            p.style.setProperty('color', 'white', 'important');
-                        }
-                        applied = true;
-                    } else if (text.includes("2. 나중에 확인")) {
-                        btn.style.setProperty('background-color', '#0b74d1', 'important');
-                        btn.style.setProperty('border-color', '#0b74d1', 'important');
-                        btn.style.setProperty('color', 'white', 'important');
+                        if (p) p.style.color = "white";
+                    }} else if (text.includes("2. 나중에 확인")) {{
+                        btn.style.backgroundColor = "#0d6efd";
+                        btn.style.borderColor = "#0d6efd";
+                        btn.style.color = "white";
                         const p = btn.querySelector('p');
-                        if (p) {
-                            p.style.setProperty('color', 'white', 'important');
-                        }
-                        applied = true;
-                    } else if (text.includes("3. AI 요약 보기")) {
-                        btn.style.setProperty('background-color', '#41b04a', 'important');
-                        btn.style.setProperty('border-color', '#41b04a', 'important');
-                        btn.style.setProperty('color', 'white', 'important');
+                        if (p) p.style.color = "white";
+                    }} else if (text.includes("3. AI 요약 보기")) {{
+                        btn.style.backgroundColor = "#198754";
+                        btn.style.borderColor = "#198754";
+                        btn.style.color = "white";
                         const p = btn.querySelector('p');
-                        if (p) {
-                            p.style.setProperty('color', 'white', 'important');
-                        }
-                        applied = true;
-                    } else if (text.includes("4. AI 챗봇에게 질문")) {
-                        btn.style.setProperty('background-color', '#f59e0b', 'important');
-                        btn.style.setProperty('border-color', '#f59e0b', 'important');
-                        btn.style.setProperty('color', 'white', 'important');
+                        if (p) p.style.color = "white";
+                    }} else if (text.includes("4. AI 챗봇에게 질문")) {{
+                        btn.style.backgroundColor = "#ffc107";
+                        btn.style.borderColor = "#ffc107";
+                        btn.style.color = "#000";
                         const p = btn.querySelector('p');
-                        if (p) {
-                            p.style.setProperty('color', 'white', 'important');
-                        }
-                        applied = true;
-                    }
-                });
-                
-                return applied;
-            }
-
+                        if (p) p.style.color = "#000";
+                    }}
+                }});
+            }}
+            
             // 즉시 실행
-            applyStyles();
-
-            // 정기적으로 재적용 (더 빠른 간격)
-            setInterval(applyStyles, 50);
+            forceButtonColors();
             
-            // MutationObserver로 DOM 변경 감지
-            const observer = new MutationObserver((mutations) => {
-                applyStyles();
-            });
+            // 주기적 실행
+            const interval = setInterval(forceButtonColors, 100);
             
-            observer.observe(doc.body, {
-                childList: true,
-                subtree: true,
-                attributes: true,
-                attributeFilter: ['style', 'class']
-            });
-        })();
+            // 10초 후 중지 (성능 보호)
+            setTimeout(() => clearInterval(interval), 10000);
+        }})();
         </script>
         """,
-        height=0
+        unsafe_allow_html=True
     )
 
 
