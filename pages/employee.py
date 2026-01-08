@@ -234,6 +234,9 @@ def popup_banner_dialog(payload: dict):
     # 요약 모달 state 준비
     st.session_state.setdefault("_popup_summary_modal_open", False)
     st.session_state.setdefault("_popup_summary_payload", None)
+    
+    # 팝업 뷰 상태 (content / chatbot)
+    st.session_state.setdefault("_popup_view", "content")
 
     def _force_close_dialog_dom():
         components.html(
@@ -366,6 +369,69 @@ def popup_banner_dialog(payload: dict):
     st.markdown('<div class="hs-line"></div>', unsafe_allow_html=True)
     st.markdown('<div class="hs-instruction">해당 공지에 대한 처리 방식을 선택하세요.</div>', unsafe_allow_html=True)
 
+    # ========== 챗봇 뷰 ==========
+    if st.session_state._popup_view == "chatbot":
+        from core.chatbot_engine import ChatbotEngine
+        
+        st.markdown("### 🤖 AI 챗봇에게 질문하기")
+        st.caption(f"공지: {title}")
+        
+        # 채팅 메시지 초기화
+        st.session_state.setdefault("_popup_chat_messages", [])
+        
+        # 엔진 초기화
+        engine = ChatbotEngine(user_id=emp_id)
+        
+        # (초기 질문 자동 처리 제거됨)
+        
+        # 채팅 히스토리 표시
+        chat_container = st.container(height=400)
+        with chat_container:
+            if len(st.session_state._popup_chat_messages) == 0:
+                st.info("👋 안녕하세요! 이 공지에 대해 궁금한 점을 물어보세요!")
+            
+            for msg in st.session_state._popup_chat_messages:
+                with st.chat_message(msg["role"]):
+                    st.markdown(msg["content"])
+        
+        # 입력창
+        prompt = st.chat_input("질문을 입력하세요...", key="popup_chat_input")
+        
+        if prompt:
+            st.session_state._popup_chat_messages.append({
+                "role": "user",
+                "content": prompt
+            })
+            
+            with st.spinner("답변 생성 중..."):
+                result = engine.ask(prompt)
+                response = result["response"]
+                
+                st.session_state._popup_chat_messages.append({
+                    "role": "assistant",
+                    "content": response
+                })
+            
+            st.rerun()
+        
+        # 하단 버튼
+        st.divider()
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("⬅ 공지로 돌아가기", use_container_width=True, key="popup_chat_back"):
+                st.session_state._popup_view = "content"
+                st.session_state._popup_chat_messages = []
+                st.rerun()
+        with col2:
+            if st.button("✅ 확인 완료", type="primary", use_container_width=True, key="popup_chat_confirm"):
+                service.confirm_popup_action(emp_id, popup_id)
+                st.session_state._popup_chat_messages = []
+                st.session_state._popup_view = "content"
+                close_popup_now_hard()
+        
+        st.stop()
+    
+    # ========== 확인 대기 뷰 ==========
     if is_pending:
         st.warning("정말로 확인 처리하시겠습니까? (되돌릴 수 없습니다)")
         c1, c2 = st.columns(2, gap="small")
@@ -379,6 +445,8 @@ def popup_banner_dialog(payload: dict):
                 st.session_state._popup_confirm_pending_id = None
                 st.rerun()
         st.stop()
+    
+    # ========== 기본 콘텐츠 뷰 ==========
 
     # 이미지는 본문 판단을 위해 먼저 확인
     img_url = payload.get("imageUrl") or payload.get("image_url")
@@ -481,18 +549,9 @@ def popup_banner_dialog(payload: dict):
     with r2_c2:
         if st.button("4. AI 챗봇에게 질문", use_container_width=True, key=f"popup_chatbot_{popup_id}"):
             service.log_chatbot_move(emp_id, popup_id)
-
-            # 챗봇 페이지로 전달할 초기 질문 설정
-            st.session_state["_chatbot_initial_query"] = f"{title}에 대해 알려줘"
-
-            # 팝업 닫기 (상태 초기화)
-            st.session_state._popup_modal_open = False
-            st.session_state._popup_payload = None
-            st.session_state._last_popup_id = popup_id
-            st.session_state._chatbot_modal_open = False # 기존 모달 플래그도 끔
-
-            # 챗봇 페이지로 이동
-            st.switch_page("pages/chatbot.py")
+            # 팝업 내 챗봇 뷰로 전환
+            st.session_state._popup_view = "chatbot"
+            st.rerun()
 
     # 버튼 색상 적용 스크립트
     # 버튼 색상 적용 스크립트 (강력한 적용)

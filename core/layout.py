@@ -3,6 +3,10 @@ import mimetypes
 from pathlib import Path
 from typing import Optional, List, Tuple
 import streamlit as st
+import service
+import time
+from core.config import DEPARTMENT_EMAILS, ADMIN_EMAIL
+from core.email_utils import send_email
 
 
 PORTAL_PRIMARY = "#139fb0"
@@ -413,79 +417,152 @@ def render_chatbot_modal(user_id: str):
     st.markdown("### 🤖 노티가드 AI 챗봇")
     st.caption("효성전기 공지사항에 대해 무엇이든 물어보세요!")
 
-    # 초기 질문 처리 (팝업에서 넘어온 경우)
-    initial_query = st.session_state.get("_chatbot_initial_query")
-    if initial_query and len(st.session_state.modal_chat_messages) == 0:
-        # 자동으로 질문 처리
-        st.session_state.modal_chat_messages.append({
-            "role": "user",
-            "content": initial_query
-        })
+    # 모달 뷰 상태 (chat / email)
+    st.session_state.setdefault("modal_view", "chat")
 
-        # 챗봇 응답 생성
-        with st.spinner("답변 생성 중..."):
-            result = engine.ask(initial_query)
-            response = result["response"]
-
+    if st.session_state.modal_view == "chat":
+        # 초기 질문 처리 (팝업에서 넘어온 경우)
+        initial_query = st.session_state.get("_chatbot_initial_query")
+        if initial_query and len(st.session_state.modal_chat_messages) == 0:
+            # 자동으로 질문 처리
             st.session_state.modal_chat_messages.append({
-                "role": "assistant",
-                "content": response
+                "role": "user",
+                "content": initial_query
             })
 
-        # 초기 질문 초기화 (재사용 방지)
-        st.session_state["_chatbot_initial_query"] = None
+            # 챗봇 응답 생성
+            with st.spinner("답변 생성 중..."):
+                result = engine.ask(initial_query)
+                response = result["response"]
 
-    # 채팅 히스토리 표시 (높이 축소)
-    chat_container = st.container(height=350)
-    with chat_container:
-        if len(st.session_state.modal_chat_messages) == 0:
-            st.info("👋 안녕하세요! 저는 노티가드입니다.\n\n효성전기의 공지사항에 대해 궁금한 점을 물어보세요!")
+                st.session_state.modal_chat_messages.append({
+                    "role": "assistant",
+                    "content": response
+                })
 
-        for msg in st.session_state.modal_chat_messages:
-            with st.chat_message(msg["role"]):
-                st.markdown(msg["content"])
-
-    # 입력창
-    prompt = st.chat_input("예: 이번 주 안전교육 일정 알려줘", key="modal_chat_input")
-
-    if prompt:
-        # 사용자 메시지 추가
-        st.session_state.modal_chat_messages.append({
-            "role": "user",
-            "content": prompt
-        })
-
-        # 챗봇 응답
-        with st.spinner("답변 생성 중..."):
-            result = engine.ask(prompt)
-            response = result["response"]
-
-            # 봇 메시지 추가
-            st.session_state.modal_chat_messages.append({
-                "role": "assistant",
-                "content": response
-            })
-
-        # 새 메시지를 즉시 표시
-        with chat_container:
-            with st.chat_message("user"):
-                st.markdown(prompt)
-            with st.chat_message("assistant"):
-                st.markdown(response)
-
-    # 하단 버튼
-    st.divider()
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("🔄 대화 초기화", use_container_width=True, key="modal_reset"):
-            st.session_state.modal_chat_messages = []
+            # 초기 질문 초기화 (재사용 방지)
             st.session_state["_chatbot_initial_query"] = None
-            st.rerun()
-    with col2:
-        if st.button("📧 담당자 문의", use_container_width=True, key="modal_email"):
-            # 챗봇 페이지로 이동
-            st.session_state._chatbot_modal_open = False
-            st.switch_page("pages/chatbot.py")
+
+        # 채팅 히스토리 표시 (높이 축소)
+        chat_container = st.container(height=350)
+        with chat_container:
+            if len(st.session_state.modal_chat_messages) == 0:
+                st.info("👋 안녕하세요! 저는 노티가드입니다.\n\n효성전기의 공지사항에 대해 궁금한 점을 물어보세요!")
+
+            for msg in st.session_state.modal_chat_messages:
+                with st.chat_message(msg["role"]):
+                    st.markdown(msg["content"])
+
+        # 입력창
+        prompt = st.chat_input("예: 이번 주 안전교육 일정 알려줘", key="modal_chat_input")
+
+        if prompt:
+            # 사용자 메시지 추가
+            st.session_state.modal_chat_messages.append({
+                "role": "user",
+                "content": prompt
+            })
+
+            # 챗봇 응답
+            with st.spinner("답변 생성 중..."):
+                result = engine.ask(prompt)
+                response = result["response"]
+
+                # 봇 메시지 추가
+                st.session_state.modal_chat_messages.append({
+                    "role": "assistant",
+                    "content": response
+                })
+
+            # 새 메시지를 즉시 표시
+            with chat_container:
+                with st.chat_message("user"):
+                    st.markdown(prompt)
+                with st.chat_message("assistant"):
+                    st.markdown(response)
+
+        # 하단 버튼
+        st.divider()
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("🔄 대화 초기화", use_container_width=True, key="modal_reset"):
+                st.session_state.modal_chat_messages = []
+                st.session_state["_chatbot_initial_query"] = None
+                st.rerun()
+        with col2:
+            if st.button("📧 담당자 문의", use_container_width=True, key="modal_email"):
+                st.session_state.modal_view = "email"
+                st.rerun()
+
+    elif st.session_state.modal_view == "email":
+        st.markdown("#### 📧 담당자에게 문의하기")
+        
+        # 마지막 유저 질문 찾기
+        last_query = ""
+        for msg in reversed(st.session_state.modal_chat_messages):
+            if msg["role"] == "user":
+                last_query = msg["content"]
+                break
+        
+        # 첫 진입시 AI 작성
+        if "modal_email_draft" not in st.session_state:
+            emp_info = st.session_state.get("employee_info") or {}
+            dept = emp_info.get("department", "")
+            name = emp_info.get("name", "")
+            user_info_str = f"\n\n[작성자 정보]\n소속: {dept}\n이름: {name}" if dept else ""
+            
+            # 부서 감지
+            detected = engine.detect_target_department(last_query)
+            st.session_state.modal_mail_dept = detected if detected in DEPARTMENT_EMAILS else list(DEPARTMENT_EMAILS.keys())[0]
+            
+            with st.spinner("AI가 문의 내용을 작성 중입니다..."):
+                initial_draft = f"질문 내용: {last_query}{user_info_str}\n\n[추가 문의 사항을 작성해주세요]"
+                refined = engine.refine_email_content(st.session_state.modal_mail_dept, last_query, initial_draft)
+                st.session_state.modal_email_draft = refined
+        
+        # UI
+        st.info(f"원본 질문: {last_query}" if last_query else "이전 대화 내용이 없습니다.")
+        
+        target_dept = st.selectbox(
+            "문의할 부서",
+            options=list(DEPARTMENT_EMAILS.keys()),
+            key="modal_mail_dept"
+        )
+        
+        content = st.text_area(
+            "문의 내용 (AI 작성)",
+            key="modal_email_draft",
+            height=200
+        )
+        
+        c1, c2 = st.columns(2)
+        with c1:
+            if st.button("⬅ 돌아가기", key="modal_email_back", use_container_width=True):
+                del st.session_state.modal_email_draft
+                st.session_state.modal_view = "chat"
+                st.rerun()
+                
+        with c2:
+            if st.button("📤 메일 발송", key="modal_email_send", type="primary", use_container_width=True):
+                manager_email = DEPARTMENT_EMAILS.get(target_dept, ADMIN_EMAIL)
+                subject = f"[노티가드 문의] {last_query[:20]}..."
+                
+                with st.spinner(f"{target_dept} 담당자에게 발송 중..."):
+                    success = send_email(manager_email, subject, content)
+                    time.sleep(0.5)
+                
+                # DB 저장
+                service.save_inquiry(user_id, target_dept, last_query, content)
+                
+                if success:
+                    st.success(f"전송 완료! ({manager_email})")
+                else:
+                    st.warning("발송 실패 (SMTP 설정을 확인하세요)")
+                
+                time.sleep(2)
+                del st.session_state.modal_email_draft
+                st.session_state.modal_view = "chat"
+                st.rerun()
 
 
 def portal_sidebar(*, role: str, active_menu: str, on_menu_change):
