@@ -648,16 +648,16 @@ def popup_banner_dialog(payload: dict):
     r1_c1, r1_c2 = st.columns(2, gap="small")
     r2_c1, r2_c2 = st.columns(2, gap="small")
 
-    # [1행 1열] 버튼 1: 확인함 - 빨강
+    # [1행 1열] 버튼 1: 확인함 - 빨강 이모지
     with r1_c1:
-        if st.button("1. 확인함", use_container_width=True, key=f"popup_confirm_{popup_id}"):
+        if st.button("🔴 확인함", use_container_width=True, key=f"popup_confirm_{popup_id}"):
             st.session_state._popup_confirm_pending = True
             st.session_state._popup_confirm_pending_id = popup_id
             st.rerun()
 
-    # [1행 2열] 버튼 2: 나중에 확인 - 파랑
+    # [1행 2열] 버튼 2: 나중에 확인 - 파랑 이모지
     with r1_c2:
-        btn_label = f"2. 나중에 확인 ({remaining}회)"
+        btn_label = f"🔵 나중에 확인 ({remaining}회)"
         if st.button(btn_label, use_container_width=True, key=f"popup_later_{popup_id}"):
             res = service.ignore_popup_action(emp_id, popup_id)
             if not res.get("ok"):
@@ -666,9 +666,9 @@ def popup_banner_dialog(payload: dict):
                 st.session_state.employee_info = service.get_employee_info(emp_id)
                 close_popup_now_hard()
 
-    # [2행 1열] 버튼 3: 요약 보기 - 초록
+    # [2행 1열] 버튼 3: 요약 보기 - 초록 이모지
     with r2_c1:
-        if st.button("3. AI 요약 보기", use_container_width=True, key=f"popup_summary_{popup_id}"):
+        if st.button("🟢 AI 요약 보기", use_container_width=True, key=f"popup_summary_{popup_id}"):
             st.session_state["_popup_summary_modal_open"] = True
             st.session_state["_popup_summary_payload"] = {
                 "popup_id": popup_id,
@@ -677,68 +677,12 @@ def popup_banner_dialog(payload: dict):
             }
             st.rerun()
 
-    # [2행 2열] 버튼 4: 챗봇으로 바로가기 - 노랑
+    # [2행 2열] 버튼 4: 챗봇으로 바로가기 - 노랑 이모지
     with r2_c2:
-        if st.button("4. AI 챗봇에게 질문", use_container_width=True, key=f"popup_chatbot_{popup_id}"):
+        if st.button("🟡 AI 챗봇에게 질문", use_container_width=True, key=f"popup_chatbot_{popup_id}"):
             service.log_chatbot_move(emp_id, popup_id)
             st.session_state._popup_view = "chatbot"
             st.rerun()
-
-    # 버튼 색상 강제 적용 - 매우 공격적인 JavaScript
-    components.html(
-        """
-        <script>
-        (function() {
-            const doc = window.parent.document;
-            
-            function paintButton(btn, bg, text) {
-                btn.style.background = bg;
-                btn.style.backgroundColor = bg;
-                btn.style.borderColor = bg;
-                btn.style.border = '2px solid ' + bg;
-                btn.style.color = text;
-                
-                // p 태그도 색상 변경
-                const ps = btn.querySelectorAll('p');
-                ps.forEach(p => {
-                    p.style.color = text;
-                });
-            }
-            
-            function colorAll() {
-                const buttons = doc.querySelectorAll('button');
-                
-                buttons.forEach(btn => {
-                    const txt = btn.textContent || '';
-                    
-                    if (txt.indexOf('1. 확인함') > -1) {
-                        paintButton(btn, '#d9534f', 'white');
-                    } 
-                    else if (txt.indexOf('2. 나중에 확인') > -1) {
-                        paintButton(btn, '#0b74d1', 'white');
-                    } 
-                    else if (txt.indexOf('3. AI 요약') > -1) {
-                        paintButton(btn, '#41b04a', 'white');
-                    } 
-                    else if (txt.indexOf('4. AI 챗봇') > -1) {
-                        paintButton(btn, '#f59e0b', 'black');
-                    }
-                });
-            }
-            
-            // 즉시 여러 번 실행
-            for (let i = 0; i < 10; i++) {
-                setTimeout(colorAll, i * 100);
-            }
-            
-            // 30초간 매우 자주 실행
-            const interval = setInterval(colorAll, 50);
-            setTimeout(() => clearInterval(interval), 30000);
-        })();
-        </script>
-        """,
-        height=0
-    )
 
 
 
