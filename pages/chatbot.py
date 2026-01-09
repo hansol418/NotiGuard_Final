@@ -380,9 +380,10 @@ with col_chat:
             with get_conn() as conn:
                 cur = conn.execute(
                     """
-                    SELECT DISTINCT title, type
+                    SELECT DISTINCT ON (title) title, type, post_id
                     FROM notices
                     ORDER BY 
+                        title,
                         CASE WHEN type = '중요' THEN 0 ELSE 1 END,
                         post_id DESC
                     LIMIT 10
@@ -390,17 +391,17 @@ with col_chat:
                 )
                 recent_notices = cur.fetchall()
             
-            # 공지사항 제목을 기반으로 예시 질문 생성 (중복 제거)
-            example_questions = []
-            seen_titles = set()
+            # 공지사항을 type과 post_id 기준으로 재정렬 (중요도 우선)
+            notices_sorted = sorted(
+                recent_notices, 
+                key=lambda x: (0 if x["type"] == '중요' else 1, -x["post_id"])
+            )
             
-            for notice in recent_notices:
+            # 공지사항 제목을 기반으로 예시 질문 생성
+            example_questions = []
+            
+            for notice in notices_sorted:
                 title = notice["title"]
-                
-                # 이미 본 제목이면 스킵
-                if title in seen_titles:
-                    continue
-                seen_titles.add(title)
                 
                 # 제목을 질문 형태로 변환
                 if len(title) > 30:
