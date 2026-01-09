@@ -380,26 +380,39 @@ with col_chat:
             with get_conn() as conn:
                 cur = conn.execute(
                     """
-                    SELECT title, type
+                    SELECT DISTINCT title, type
                     FROM notices
                     ORDER BY 
                         CASE WHEN type = '중요' THEN 0 ELSE 1 END,
                         post_id DESC
-                    LIMIT 4
+                    LIMIT 10
                     """
                 )
                 recent_notices = cur.fetchall()
             
-            # 공지사항 제목을 기반으로 예시 질문 생성
+            # 공지사항 제목을 기반으로 예시 질문 생성 (중복 제거)
             example_questions = []
+            seen_titles = set()
+            
             for notice in recent_notices:
                 title = notice["title"]
+                
+                # 이미 본 제목이면 스킵
+                if title in seen_titles:
+                    continue
+                seen_titles.add(title)
+                
                 # 제목을 질문 형태로 변환
                 if len(title) > 30:
                     question = f"{title[:27]}... 알려줘"
                 else:
                     question = f"{title} 알려줘"
+                
                 example_questions.append(question)
+                
+                # 4개 모으면 중단
+                if len(example_questions) >= 4:
+                    break
             
             # 공지사항이 부족하면 기본 질문 추가
             default_questions = [
