@@ -117,16 +117,14 @@ class ChatbotEngine:
             # 가장 긴 키워드 우선 사용 (구체적일 확률 높음)
             search_keywords = sorted(keywords, key=len, reverse=True)
             for kw in search_keywords[:2]:  # 상위 2개 키워드로 시도
-                found = self.search_notices(kw, limit=3)
+                found = self.search_notices(kw, limit=2)  # 검색 결과 2개로 제한 (속도 최적화)
                 if found:
                     for f in found:
                         if f['post_id'] not in notice_refs:
                             notice_refs.append(f['post_id'])
                             extra_notices.append(f)
-                    
-                    # 3개 찾으면 중단
-                    if len(notice_refs) >= 3:
-                        notice_refs = notice_refs[:3]
+                    if len(notice_refs) >= 2:  # 최대 2개로 제한
+                        notice_refs = notice_refs[:2]
                         break
         
         # 8. 참조 공지 상세 정보 생성 (ID + 제목)
@@ -166,12 +164,12 @@ class ChatbotEngine:
             "keywords": keywords
         }
 
-    def _get_recent_notices(self, limit: int = 100) -> List[Dict]:
+    def _get_recent_notices(self, limit: int = 30) -> List[Dict]:
         """
         최근 공지 조회 (통합 DB)
 
         Args:
-            limit: 조회할 공지 개수 (기본값 100개)
+            limit: 조회할 공지 개수 (기본값 30개 - 속도 최적화)
 
         Returns:
             공지 리스트 (날짜 기준 내림차순)
@@ -227,10 +225,10 @@ class ChatbotEngine:
 
         parts = []
         for i, n in enumerate(notices, 1):
-            # 공지 내용 준비 (최대 1500자, 더 긴 답변 가능하도록)
+            # 공지 내용 준비 (최대 500자로 제한 - 속도 최적화)
             content = n['content']
-            if len(content) > 1500:
-                content = content[:1500] + "..."
+            if len(content) > 500:
+                content = content[:500] + "..."
 
             parts.append(
                 f"[공지 {i}]\n"
