@@ -18,6 +18,9 @@ POTENS_API_KEY = os.getenv("POTENS_API_KEY", "")
 POTENS_API_URL = os.getenv("POTENS_API_URL", "https://ai.potens.ai/api/chat")
 RESPONSE_TIMEOUT = float(os.getenv("RESPONSE_TIMEOUT", "30"))
 
+# OpenAI API 설정 (스트리밍용)
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+
 # PostgreSQL 사용 여부
 USE_POSTGRES = bool(os.getenv("DATABASE_URL"))
 
@@ -165,6 +168,119 @@ class ChatbotEngine:
             "notice_details": notice_details,  # 제목 포함 상세 정보 추가
             "keywords": keywords
         }
+    
+    def ask_stream(self, user_query: str):
+        """
+        사용자 질문 처리 (스트리밍 버전)
+        
+        Args:
+            user_query: 사용자 질문
+        
+        Yields:
+            응답 텍스트 청크들
+            
+        Returns (마지막에):
+            전체 응답과 메타데이터를 포함한 딕셔너리
+        """
+        # 1. 최근 공지 조회
+        recent_notices = self._get_recent_notices()
+        
+        # 2. 컨텍스트 구성
+        context = self._build_context(recent_notices)
+        
+        # 3. 관리자인 경우 키워드 통계 추가
+        is_admin = (self.user_id == "admin")
+        keyword_stats_text = ""
+        
+        if is_admin:
+            import service
+            keyword_stats = service.get_chatbot_keyword_stats()
+            if keyword_stats:
+                stats_lines = []
+                total_keywords = keyword_stats.get("전체", {})
+                if total_keywords:
+                    top_keywords = sorted(total_keywords.items(), key=lambda x: x[1], reverse=True)[:10]
+                    keyword_list = [f"{kw} ({count}회)" for kw, count in top_keywords]
+                    stats_lines.append("**전체 직원 TOP 10:**")
+                    stats_lines.append(", ".join(keyword_list))
+                
+                stats_lines.append("\n**부서별 TOP 5:**")
+                for dept_name, dept_keywords in keyword_stats.items():
+                    if dept_name == "전체":
+                        continue
+                    if dept_keywords:
+                        top_dept_keywords = sorted(dept_keywords.items(), key=lambda x: x[1], reverse=True)[:5]
+                        dept_keyword_list = [f"{kw} ({count}회)" for kw, count in top_dept_keywords]
+                        stats_lines.append(f"• {dept_name}: {', '.join(dept_keyword_list)}")
+                
+                keyword_stats_text = "\n\n**[관리자 전용] 직원들이 최근 자주 질문한 키워드 통계:**\n" + "\n".join(stats_lines)
+        
+        # 4. 프롬프트 생성
+        prompt = self._build_prompt(user_query, context, keyword_stats_text if is_admin else "")
+        
+        # 5. OpenAI API 스트리밍 호출
+        full_response = ""
+        for chunk in self._call_openai_stream(prompt):
+            full_response += chunk
+            yield chunk
+        
+        # 6. 응답 처리 (스트리밍 완료 후)
+        response_type = self._detect_response_type(full_response)
+        notice_refs = self._extract_notice_refs(full_response, recent_notices)
+        
+        # 추가 공지 풀
+        extra_notices = []
+        keywords = self._extract_keywords(user_query)
+        
+        if not notice_refs and response_type == "NORMAL":
+            search_keywords = sorted(keywords, key=len, reverse=True)
+            for kw in search_keywords[:2]:
+                found = self.search_notices(kw, limit=3)
+                if found:
+                    for f in found:
+                        if f['post_id'] not in notice_refs:
+                            notice_refs.append(f['post_id'])
+                            extra_notices.append(f)
+                    if len(notice_refs) >= 3:
+                        notice_refs = notice_refs[:3]
+                        break
+        
+        # 참조 공지 상세 정보
+        all_pool = recent_notices + extra_notices
+        seen_ids = set()
+        unique_pool = []
+        for n in all_pool:
+            if n['post_id'] not in seen_ids:
+                unique_pool.append(n)
+                seen_ids.add(n['post_id'])
+        
+        notice_details = []
+        for ref_id in notice_refs:
+            notice = next((n for n in unique_pool if n['post_id'] == ref_id), None)
+            if notice:
+                notice_details.append({
+                    "post_id": ref_id,
+                    "title": notice['title']
+                })
+        
+        # 로그 저장
+        self._save_chat_log(
+            user_query,
+            full_response,
+            response_type,
+            notice_refs,
+            keywords
+        )
+        
+        # 메타데이터 반환
+        return {
+            "response": self._clean_response(full_response),
+            "response_type": response_type,
+            "notice_refs": notice_refs,
+            "notice_details": notice_details,
+            "keywords": keywords
+        }
+
     def _get_recent_notices(self, limit: int = 100) -> List[Dict]:
         """
         최근 공지 조회 (통합 DB)
@@ -514,6 +630,44 @@ class ChatbotEngine:
             return f"TYPE:MISSING API 호출 실패: {str(e)}"
         except Exception as e:
             return f"TYPE:MISSING 오류 발생: {str(e)}"
+    
+    def _call_openai_stream(self, prompt: str):
+        """
+        OpenAI API 스트리밍 호출
+        
+        Args:
+            prompt: 프롬프트
+        
+        Yields:
+            응답 텍스트 청크들
+        """
+        if not OPENAI_API_KEY:
+            yield "TYPE:MISSING OpenAI API 키가 설정되지 않았습니다. 관리자에게 문의하세요."
+            return
+        
+        try:
+            from openai import OpenAI
+            client = OpenAI(api_key=OPENAI_API_KEY)
+            
+            stream = client.chat.completions.create(
+                model="gpt-4o-mini",  # 또는 "gpt-3.5-turbo"
+                messages=[
+                    {"role": "system", "content": "당신은 효성전기의 공지사항 알림 챗봇 '노티가드'입니다."},
+                    {"role": "user", "content": prompt}
+                ],
+                stream=True,
+                temperature=0.7,
+                max_tokens=2000
+            )
+            
+            for chunk in stream:
+                if chunk.choices[0].delta.content is not None:
+                    yield chunk.choices[0].delta.content
+                    
+        except ImportError:
+            yield "TYPE:MISSING OpenAI 라이브러리가 설치되지 않았습니다. pip install openai를 실행하세요."
+        except Exception as e:
+            yield f"TYPE:MISSING OpenAI API 오류: {str(e)}"
 
     def _detect_response_type(self, response: str) -> str:
         """

@@ -440,12 +440,21 @@ with col_chat:
                         if len(current_session["messages"]) == 1:
                             update_session_name_if_needed(st.session_state.current_session_id)
                         
-                        # 챗봇 응답 생성
-                        with st.spinner("답변 생성 중..."):
-                            result = engine.ask(question)
-                            response = result["response"]
-                            notice_refs = result.get("notice_refs", [])
-                            notice_details = result.get("notice_details", [])
+                        # 챗봇 응답 생성 (스트리밍)
+                        with st.chat_message("assistant"):
+                            stream_generator = engine.ask_stream(question)
+                            response = st.write_stream(stream_generator)
+                            
+                            # 스트리밍 완료 후 메타데이터 가져오기
+                            try:
+                                metadata = stream_generator.send(None)  # generator에서 반환값 가져오기
+                                notice_refs = metadata.get("notice_refs", [])
+                                notice_details = metadata.get("notice_details", [])
+                            except StopIteration as e:
+                                # generator가 return으로 값을 반환한 경우
+                                metadata = e.value if hasattr(e, 'value') else {}
+                                notice_refs = metadata.get("notice_refs", [])
+                                notice_details = metadata.get("notice_details", [])
                             
                             current_session["messages"].append({
                                 "role": "assistant",
@@ -478,12 +487,20 @@ with col_chat:
             if len(current_session["messages"]) == 1:
                 update_session_name_if_needed(st.session_state.current_session_id)
 
-            # 응답 생성
-            with st.spinner("답변 생성 중..."):
-                result = engine.ask(initial_q)
-                response = result["response"]
-                notice_refs = result.get("notice_refs", [])
-                notice_details = result.get("notice_details", [])
+            # 응답 생성 (스트리밍)
+            with st.chat_message("assistant"):
+                stream_generator = engine.ask_stream(initial_q)
+                response = st.write_stream(stream_generator)
+                
+                # 스트리밍 완료 후 메타데이터 가져오기
+                try:
+                    metadata = stream_generator.send(None)
+                    notice_refs = metadata.get("notice_refs", [])
+                    notice_details = metadata.get("notice_details", [])
+                except StopIteration as e:
+                    metadata = e.value if hasattr(e, 'value') else {}
+                    notice_refs = metadata.get("notice_refs", [])
+                    notice_details = metadata.get("notice_details", [])
                 
                 current_session["messages"].append({
                     "role": "assistant",
@@ -522,12 +539,20 @@ with col_chat:
             if len(current_session["messages"]) == 1:
                 update_session_name_if_needed(st.session_state.current_session_id)
             
-            # 챗봇 응답 생성
-            with st.spinner("답변 생성 중..."):
-                result = engine.ask(prompt)
-                response = result["response"]
-                notice_refs = result.get("notice_refs", [])
-                notice_details = result.get("notice_details", [])
+            # 챗봇 응답 생성 (스트리밍)
+            with st.chat_message("assistant"):
+                stream_generator = engine.ask_stream(prompt)
+                response = st.write_stream(stream_generator)
+                
+                # 스트리밍 완료 후 메타데이터 가져오기
+                try:
+                    metadata = stream_generator.send(None)
+                    notice_refs = metadata.get("notice_refs", [])
+                    notice_details = metadata.get("notice_details", [])
+                except StopIteration as e:
+                    metadata = e.value if hasattr(e, 'value') else {}
+                    notice_refs = metadata.get("notice_refs", [])
+                    notice_details = metadata.get("notice_details", [])
                 
                 current_session["messages"].append({
                     "role": "assistant",
