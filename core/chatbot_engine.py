@@ -220,11 +220,19 @@ class ChatbotEngine:
         # 4. 프롬프트 생성
         prompt = self._build_prompt(user_query, context, keyword_stats_text if is_admin else "")
         
-        # 5. OpenAI API 스트리밍 호출
+        # 5. API 호출 (OpenAI 우선, 없으면 POTENS)
         full_response = ""
-        for chunk in self._call_openai_stream(prompt):
-            full_response += chunk
-            yield chunk
+        
+        if OPENAI_API_KEY:
+            # OpenAI API 스트리밍 호출
+            for chunk in self._call_openai_stream(prompt):
+                full_response += chunk
+                yield chunk
+        else:
+            # POTENS API 사용 (스트리밍 시뮬레이션)
+            full_response = self._call_potens_api(prompt)
+            # 응답을 한 번에 yield (스트리밍 효과는 없지만 호환성 유지)
+            yield full_response
         
         # 6. 응답 처리 (스트리밍 완료 후)
         response_type = self._detect_response_type(full_response)
