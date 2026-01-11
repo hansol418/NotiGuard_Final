@@ -64,12 +64,18 @@ remove_floating_widget()
 st.session_state.setdefault("chatbot_sessions", {})  # {session_id: {name, messages, timestamp}}
 st.session_state.setdefault("current_session_id", None)
 
+# 엔진 초기화 함수 (캐싱으로 성능 최적화)
+@st.cache_resource
+def get_chatbot_engine(user_id: str):
+    """ChatbotEngine 인스턴스를 캐싱하여 재사용"""
+    return ChatbotEngine(user_id=user_id)
+
 # 엔진 초기화 - 관리자는 "admin", 직원은 employee_id 사용
 if st.session_state.role == "ADMIN":
     user_id = "admin"
 else:
     user_id = st.session_state.get("employee_id", "guest")
-engine = ChatbotEngine(user_id=user_id)
+engine = get_chatbot_engine(user_id)
 
 # DB에서 채팅 세션 로드 (최초 1회)
 if "chatbot_loaded" not in st.session_state:
@@ -308,9 +314,11 @@ if st.session_state.current_session_id is None and st.session_state.chatbot_sess
 col_history, col_chat = st.columns([1, 3], gap="medium")
 
 # -------------------------
-# 왼쪽: 대화 히스토리
+# 왼쪽: 대화 히스토리 (Fragment로 부분 렌더링)
 # -------------------------
-with col_history:
+@st.fragment
+def render_session_history():
+    """세션 히스토리 렌더링 (부분 업데이트)"""
     st.markdown("### 대화 히스토리")
     
     # 새 대화 버튼
@@ -345,10 +353,15 @@ with col_history:
                     delete_session(session_id)
                     st.rerun()
 
+with col_history:
+    render_session_history()
+
 # -------------------------
-# 오른쪽: 채팅
+# 오른쪽: 채팅 (Fragment로 부분 렌더링)
 # -------------------------
-with col_chat:
+@st.fragment
+def render_chat_interface():
+    """채팅 인터페이스 렌더링 (부분 업데이트)"""
     st.markdown("### 🤖 노티가드 AI 챗봇")
     
     # 현재 세션 가져오기
@@ -640,3 +653,7 @@ with col_chat:
                     st.warning("먼저 챗봇에게 질문을 해주세요.")
     else:
         st.warning("대화 세션을 선택하거나 새로 만들어주세요.")
+
+# 채팅 인터페이스 렌더링 (Fragment 적용)
+with col_chat:
+    render_chat_interface()
